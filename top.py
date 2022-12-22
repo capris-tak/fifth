@@ -4,14 +4,16 @@ title = st.text_input('Movie title', 'Life of Brian')
 st.write('The current movie title is', title)
 
 import cv2
- 
+
+uploaded_image = st.file_uploader('Choose an image..',type=['png', 'jpg','jpeg','webp'])
+
 XML_PATH = "haarcascade_frontalface_default.xml"
-INPUT_IMG_PATH = "input.jpg"
+#INPUT_IMG_PATH = "input.jpg"
 #OUTPUT_IMG_PATH = "出力する画像のパス"
  
 classifier = cv2.CascadeClassifier(XML_PATH)
  
-img = cv2.imread(INPUT_IMG_PATH)
+img = cv2.imread(uploaded_image)
 color = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
  
 targets = classifier.detectMultiScale(color)
