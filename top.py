@@ -1,9 +1,6 @@
 import streamlit as st
-
-title = st.text_input('Movie title', 'Life of Brian')
-st.write('The current movie title is', title)
-
 import cv2
+from PIL import Image
 
 uploaded_image = st.file_uploader('Choose an image..',type=['png', 'jpg','jpeg','webp'])
 
