@@ -15,7 +15,7 @@ app = FaceAnalysis(providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
 app.prepare(ctx_id=0, det_size=(640, 640))
  
 faces = app.get(np.asarray(img))
-rimg = app.draw_on(np.asarray(img), faces)
+rimg = app.draw_on(img, faces)
 
 #st.write("faces:" + str(len(faces)))
 #rimg = app.draw_on(img, faces)
