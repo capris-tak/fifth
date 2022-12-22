@@ -2,6 +2,9 @@ streamlit
 numpy
 
 retinaface
+imutils
+dlib
+torch
 
 cython
 onnxruntime
