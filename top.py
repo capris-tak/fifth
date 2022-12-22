@@ -3,6 +3,26 @@ import streamlit as st
 title = st.text_input('Movie title', 'Life of Brian')
 st.write('The current movie title is', title)
 
+import cv2
+ 
+XML_PATH = "haarcascade_frontalface_default.xml"
+INPUT_IMG_PATH = "input.jpg"
+#OUTPUT_IMG_PATH = "出力する画像のパス"
+ 
+classifier = cv2.CascadeClassifier(XML_PATH)
+ 
+img = cv2.imread(INPUT_IMG_PATH)
+color = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+ 
+targets = classifier.detectMultiScale(color)
+ 
+for x, y, w, h in targets:
+    cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+ #cv2.imwrite(OUTPUT_IMG_PATH, img)
+st.image(img)
+ 
+
+
 '''
 import numpy as np
 import cv2
@@ -20,7 +40,6 @@ rimg = app.draw_on(img, faces)
 #st.write("faces:" + str(len(faces)))
 #rimg = app.draw_on(img, faces)
 #st.image(rimg)
-'''
 
 from retinaface import RetinaFace
 import cv2
@@ -56,7 +75,6 @@ st.image(img)
  
 #------------------------------
 #alignment
-'''
 img_path = "dataset/img11.jpg"
  
 resp = RetinaFace.extract_faces(img_path = img_path, align = True)
