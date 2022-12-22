@@ -45,7 +45,7 @@ if uploaded_image is not None:
 	# 顔検出箇所に矩型描画のためのループ
 	for(x,y,w,h) in faces:
 		# 顔箇所を四角で描画
-		img_cascade = cv2.rectangle(gray, (x,y), (x+w,y+h), (0,255,0), 2)
+		img_cascade = cv2.rectangle(img_array, (x,y), (x+w,y+h), (0,255,0), 2)
 	st.image(cv2.cvtColor(img_cascade, cv2.COLOR_BGR2RGB))
  
 
