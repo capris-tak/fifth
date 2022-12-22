@@ -14,7 +14,10 @@ img = cv2.imread(image_file)
 app = FaceAnalysis()
 app.prepare(ctx_id=0, det_size=(640, 640))
  
-faces = app.get(np.asarray(img))
+faces = app.get(img)
+rimg = app.draw_on(img, faces)
+
+#faces = app.get(np.asarray(img))
 st.write("faces:" + str(len(faces)))
  
 rimg = app.draw_on(img, faces)
