@@ -2,6 +2,8 @@ streamlit
 #cmake
 
 numpy
+gluoncv
+
 
 retinaface
 #imutils
