@@ -1,11 +1,13 @@
 streamlit
+cmake
+
 numpy
 
 retinaface
 imutils
 dlib
 torch
-cmake
+
 
 #cython
 #onnxruntime
