@@ -1,6 +1,7 @@
 import streamlit as st
 import cv2
 from PIL import Image
+import numpy
 
 uploaded_image = st.file_uploader('Choose an image..',type=['png', 'jpg','jpeg','webp'])
 
