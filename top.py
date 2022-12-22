@@ -20,7 +20,7 @@ if uploaded_image is not None:
 	for x, y, w, h in targets:
 		cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
 	#cv2.imwrite(OUTPUT_IMG_PATH, img)
-	st.image(img)
+	st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
  
 
 
