@@ -12,14 +12,15 @@ if uploaded_image is not None:
 	classifier = cv2.CascadeClassifier(XML_PATH)
 	image=Image.open(uploaded_image)
 	img_array = np.array(image)
+	
 	color = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
 
 	targets = classifier.detectMultiScale(color)
 
 	for x, y, w, h in targets:
-		cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+		cv2.rectangle(img_array, (x, y), (x + w, y + h), (255, 0, 0), 2)
 	#cv2.imwrite(OUTPUT_IMG_PATH, img)
-	st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+	st.image(cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB))
  
 
 
