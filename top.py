@@ -13,9 +13,10 @@ if uploaded_image is not None:
  #OUTPUT_IMG_PATH = "出力する画像のパス"
 
  classifier = cv2.CascadeClassifier(XML_PATH)
-
- img = cv2.imread(uploaded_image)
- color = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+ 
+ image=Image.open(uploaded_image)
+	img_array = np.array(image)
+ color = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
 
  targets = classifier.detectMultiScale(color)
 
