@@ -1,12 +1,12 @@
 streamlit
-cmake
+#cmake
 
 numpy
 
 retinaface
-imutils
-dlib
-torch
+#imutils
+#dlib
+#torch
 
 
 #cython
