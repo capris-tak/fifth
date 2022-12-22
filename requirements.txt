@@ -1,6 +1,8 @@
 streamlit
 numpy
 
+retinaface
+
 cython
 onnxruntime
 insightface
