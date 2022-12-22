@@ -2,8 +2,8 @@ import streamlit as st
 import cv2
 from PIL import Image
 import numpy as np
-import torch
-import imutils
+#import torch
+#import imutils
 
 uploaded_image = st.file_uploader('Choose an image..',type=['png', 'jpg','jpeg','webp'])
 
