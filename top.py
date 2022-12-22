@@ -23,6 +23,30 @@ if uploaded_image is not None:
 		cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
 	#cv2.imwrite(OUTPUT_IMG_PATH, img)
 	st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+	
+	
+	
+	
+	# 顔検出インスタンス生成
+	cascadePath = 'haarcascade_frontalface_alt2.xml'
+	faceCascade = cv2.CascadeClassifier(cascadePath)
+	# 目検出インスタンス生成
+	eye_cascadePath = 'haarcascade_eye.xml'
+	eye_cascade = cv2.CascadeClassifier(eye_cascadePath)	
+	# グレースケールに変換
+	gray = cv2.cvtColor(img_array,cv2.COLOR_BGR2GRAY)
+	# 顔検出
+	faces = faceCascade.detectMultiScale( 
+		gray,
+		scaleFactor = 1.2,
+		minNeighbors = 3,
+		minSize = (10, 10)
+		)
+	# 顔検出箇所に矩型描画のためのループ
+	for(x,y,w,h) in faces:
+		# 顔箇所を四角で描画
+		img_cascade = cv2.rectangle(img, (x,y), (x+w,y+h), (0,255,0), 2)
+	st.image(cv2.cvtColor(img_cascade, cv2.COLOR_BGR2RGB))
  
 
 
