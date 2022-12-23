@@ -9,7 +9,7 @@ gluoncv
 mxnet
 autogluon
 
-subprocess
+#subprocess
 
 retinaface
 #imutils
