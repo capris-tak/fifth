@@ -1,25 +1,9 @@
 streamlit
+opencv-python-headless==4.6.0.66
 pillow
 matplotlib
 numpy
-opencv-python-headless
 
-
-gluoncv
-mxnet
-autogluon
-
-#subprocess
-#cmake
-retinaface
-#imutils
-#dlib
-#torch
-
-
-#cython
-#onnxruntime
-#insightface
 
 
 
