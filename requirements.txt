@@ -1,8 +1,8 @@
 streamlit
-#cmake
-
+pillow
+matplotlib
 numpy
-
+opencv-python-headless
 
 
 gluoncv
@@ -10,7 +10,7 @@ mxnet
 autogluon
 
 #subprocess
-
+#cmake
 retinaface
 #imutils
 #dlib
@@ -21,6 +21,5 @@ retinaface
 #onnxruntime
 #insightface
 
-opencv-python-headless==4.6.0.66
-pillow
-matplotlib
+
+
