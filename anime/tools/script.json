@@ -1,0 +1,12 @@
+[
+ {"id":"n1","who":"narrator","style":31,"text":"雲の海に浮かぶ、小さな島。そこには、灯台守の少女が、ひとりで暮らしていました。","speed":1.08},
+ {"id":"m1","who":"mina","style":14,"text":"わっ！流れ星が、落ちてきた！？","speed":1.1,"pitch":0.03,"intonation":1.4},
+ {"id":"h1","who":"hoshi","style":10,"text":"いたた……ひかりが、消えかけちゃった。これじゃ、空に帰れないよ。","speed":1.05,"pitch":0.04},
+ {"id":"m2","who":"mina","style":14,"text":"どうしたら、元に戻るの？","speed":1.08,"intonation":1.3},
+ {"id":"h2","who":"hoshi","style":10,"text":"だれかの、あたたかい光があれば……","speed":1.0,"pitch":0.03},
+ {"id":"m3","who":"mina","style":14,"text":"それなら、とっておきがあるよ！","speed":1.12,"intonation":1.5},
+ {"id":"h3","who":"hoshi","style":10,"text":"わあ……あったかい！ありがとう、ミナ！","speed":1.08,"pitch":0.05,"intonation":1.4},
+ {"id":"m4","who":"mina","style":14,"text":"また、会える？","speed":0.95,"intonation":1.2},
+ {"id":"h4","who":"hoshi","style":10,"text":"夜空を見上げて。いつでも、そこで光ってるから！","speed":1.08,"pitch":0.04,"intonation":1.3},
+ {"id":"n2","who":"narrator","style":31,"text":"その夜から、灯台の上には、ひときわ明るい星が、輝くようになりました。","speed":1.1}
+]

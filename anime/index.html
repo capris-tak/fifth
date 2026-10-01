@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ほしのとうだい</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head><body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="src/util.js"></script>
+<script src="src/timeline.js"></script>
+<script src="src/world.js"></script>
+<script src="src/mina.js"></script>
+<script src="src/hoshi.js"></script>
+<script src="src/fx.js"></script>
+<script src="src/scenes.js"></script>
+<script>
+const ctx=document.getElementById('c').getContext('2d');
+window.renderFrame=(t)=>{ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';
+  ctx.fillStyle='#000';ctx.fillRect(0,0,1920,1080);Scenes.render(ctx,t);return true;};
+window.READY=true;
+</script></body></html>
