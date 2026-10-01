@@ -10,7 +10,7 @@ const TAU = Math.PI*2;
 const RAMP = ['#ffffff','#fff8e2','#fff0b8','#ffe28a','#ffcf6e','#ffb35a','#ff9a78','#ff8ea6','#e79bdc','#b9a6ff'];
 const NR = RAMP.length;
 const sprites = {};
-function mkCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
+let cid=0; function mkCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;c._id=++cid;return c;}
 // soft gaussian-ish glow, colour hex, 128px
 function glowSprite(hex){
   const k='g'+hex; if(sprites[k])return sprites[k];
@@ -50,6 +50,31 @@ function dotSprite(hex){
   g.fillStyle=gr;g.fillRect(0,0,S,S);
   return sprites[k]=c;
 }
+// blurred radial god-ray texture (white), deterministic per seed. 512px, rays fade to edge.
+function rayTex(seed,n,wmin,wmax){
+  const k='r'+seed+':'+n; if(sprites[k])return sprites[k];
+  const S=512,raw=mkCanvas(S,S),g=raw.getContext('2d'),c=S/2;
+  const r=U.rng(seed);
+  g.globalCompositeOperation='lighter';
+  for(let i=0;i<n;i++){
+    const an=(i+r()*.9)/n*TAU, w=wmin+(wmax-wmin)*r()*r(), len=c*(.45+.55*r()), a=.35+.65*r();
+    const gr=g.createRadialGradient(c,c,0,c,c,len);
+    gr.addColorStop(0,`rgba(255,255,255,${a})`);gr.addColorStop(.3,`rgba(255,255,255,${a*.45})`);gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=gr;g.beginPath();g.moveTo(c,c);
+    g.lineTo(c+Math.cos(an-w)*len,c+Math.sin(an-w)*len);g.lineTo(c+Math.cos(an+w)*len,c+Math.sin(an+w)*len);g.closePath();g.fill();
+  }
+  const out=mkCanvas(S,S),o=out.getContext('2d');
+  o.filter='blur(2.5px)';o.drawImage(raw,0,0);o.filter='none';
+  return sprites[k]=out;
+}
+function tinted(src,hex,key){
+  const k='t'+src._id+hex; if(sprites[k])return sprites[k];
+  const c=mkCanvas(src.width,src.height),g=c.getContext('2d');
+  g.drawImage(src,0,0);g.globalCompositeOperation='source-in';g.fillStyle=hex;g.fillRect(0,0,c.width,c.height);
+  return sprites[k]=c;
+}
+// draw a texture centred at (x,y), radius R, rotation rot
+function texAt(ctx,tex,x,y,R,rot,a){ if(a<=.003)return; ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.globalAlpha=Math.min(1,a);ctx.drawImage(tex,-R,-R,R*2,R*2);ctx.restore(); }
 const rampHex = h=>RAMP[Math.max(0,Math.min(NR-1,Math.round(h*(NR-1))))];
 function glow(ctx,x,y,r,hex,a){ if(a<=.003||r<=.2)return; ctx.globalAlpha=Math.min(1,a); ctx.drawImage(glowSprite(hex),x-r,y-r,r*2,r*2); }
 function spark(ctx,x,y,r,hex,a,diag){ if(a<=.003||r<=.2)return; ctx.globalAlpha=Math.min(1,a); ctx.drawImage(sparkSprite(hex,diag),x-r,y-r,r*2,r*2); }
@@ -69,243 +94,243 @@ function table(name,n,seed,gen){const k=name+':'+n+':'+seed;if(tables[k])return 
 // twinkle 0..1 deterministic per particle
 const twk=(t,ph,sp)=>.55+.45*Math.sin(t*sp+ph);
 
+// soft chromatic ring (ellipse when squash<1): rose outside, gold middle, cyan inside
+function chromaRing(ctx,x,y,R,squash,w,a,spread){
+  if(a<=.003||R<=0)return; const off=(spread||1)*w*.9;
+  const L=[['#ff6f9f',off,.55],['#ffe7a0',0,1],['#7fe0ff',-off,.5]];
+  ctx.globalAlpha=1;
+  for(const [c,d,m] of L){const r=Math.max(1,R+d);
+    ctx.strokeStyle=U.rgba(c,a*m*.22);ctx.lineWidth=w*3;ctx.beginPath();ctx.ellipse(x,y,r,r*squash,0,0,TAU);ctx.stroke();
+    ctx.strokeStyle=U.rgba(c,a*m*.6);ctx.lineWidth=w*.8;ctx.beginPath();ctx.ellipse(x,y,r,r*squash,0,0,TAU);ctx.stroke();}
+}
+// tapered-looking motion streak: faint wide + bright thin core
+function streak(ctx,x0,y0,x1,y1,w,hex,a){
+  if(a<=.003)return; ctx.globalAlpha=1; ctx.lineCap='round';
+  ctx.strokeStyle=U.rgba(hex,a*.35);ctx.lineWidth=w*2.2;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  ctx.strokeStyle=U.rgba('#fffbe6',a*.9);ctx.lineWidth=w*.7;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(x1,y1);ctx.stroke();
+}
+
 // ---------------------------------------------------------------- shooting star
-// o: {x0,y0,x1,y1,t0,t1, arc=0 (perpendicular bulge px), size=1, seed=7, tail=0.45 (s), ease=1.5}
+// o: {x0,y0,x1,y1,t0,t1, arc=0 (perpendicular bulge px), size=1, seed=7, tail=0.45 (s of history), ease=1.5, density=1}
+// Head accelerates (ease exponent), tail = sampled path history, sparks shed along the flight. Lingers ~1.5 s after t1 (sparks only).
 FX.shootingStar = function(ctx,t,o){
   const t0=o.t0,t1=o.t1; if(t<t0||t>t1+1.6)return;
   const S=o.size||1, seed=o.seed||7, arc=o.arc||0, ep=o.ease||1.5, tailT=o.tail||.45, D=t1-t0;
   const dx=o.x1-o.x0, dy=o.y1-o.y0, L=Math.hypot(dx,dy), nx=-dy/L, ny=dx/L;
   const pos=tt=>{const u=U.clamp((tt-t0)/D), p=Math.pow(u,ep), b=Math.sin(Math.PI*p)*arc;
     return [o.x0+dx*p+nx*b, o.y0+dy*p+ny*b];};
-  const live=t<=t1, fadeAfter=live?1:Math.exp(-(t-t1)*9);
-  ctx.save(); ctx.globalCompositeOperation='lighter';
-  // --- tail: sampled history, tapered layered glow + bright core line
-  const N=46, pts=[];
-  for(let i=0;i<=N;i++){const tt=t-tailT*i/N; if(tt<t0)break; pts.push(pos(tt));}
+  const live=t<=t1, fadeAfter=live?1:Math.exp(-(t-t1)*10);
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+  // --- tail
+  const N=40, pts=[];
+  for(let i=0;i<=N;i++){const tt=Math.min(t,t1)-tailT*i/N - (live?0:(t-t1)); if(tt<t0)break; pts.push(pos(Math.max(t0,tt)));}
   if(pts.length>1&&fadeAfter>.01){
-    // wide soft ribbon
-    for(let pass=0;pass<3;pass++){
-      const w=[34,12,3.2][pass]*S, col=['#ff9ac2','#ffd98a','#ffffff'][pass], al=[.10,.30,.9][pass];
-      ctx.lineCap='round';
+    const passes=[[46,'#ff8fb0',.05,1.1],[22,'#ffb347',.13,1.4],[9,'#ffe28a',.35,1.8],[2.6,'#fffbe6',.95,2.4]];
+    for(const [w,col,al,pw] of passes){
       for(let i=0;i<pts.length-1;i++){
-        const k=i/(pts.length-1), taper=Math.pow(1-k,1.6);
-        ctx.strokeStyle=U.rgba(col,al*taper*fadeAfter); ctx.lineWidth=Math.max(.5,w*(.25+.75*taper));
+        const k=i/(pts.length-1), taper=Math.pow(1-k,pw);
+        ctx.strokeStyle=U.rgba(col,al*taper*fadeAfter); ctx.lineWidth=Math.max(.4,w*S*(.2+.8*Math.pow(1-k,.7)));
         ctx.beginPath(); ctx.moveTo(pts[i][0],pts[i][1]); ctx.lineTo(pts[i+1][0],pts[i+1][1]); ctx.stroke();
       }
     }
-    // glow beads along tail (heat ramp, white->gold->rose)
-    for(let i=1;i<pts.length;i+=2){const k=i/(pts.length-1);
-      glow(ctx,pts[i][0],pts[i][1],(40-28*k)*S,rampHex(.15+k*.7),.22*(1-k)*fadeAfter);}
   }
-  // --- shed sparks: emitted at fixed times along the flight, ballistic with drag & gravity
-  const NS=Math.round(150*(o.density||1));
-  const sp=table('ss',NS,seed,r=>({u:r(),vx:(r()-.5)*260,vy:(r()-.5)*260-40,life:.5+r()*1.0,sz:2+r()*5,ph:r()*TAU,h:r()*.25,dg:r()<.5}));
+  // --- shed sparks (ballistic, drag + gravity), colour cools from white-hot to gold to rose
+  const NS=Math.round(170*(o.density||1));
+  const sp=table('ss',NS,seed,r=>({u:Math.pow(r(),.7),vx:(r()-.5)*240,vy:(r()-.5)*200-30,life:.45+r()*1.1,sz:1.5+r()*4.5,ph:r()*TAU,h:r()*.2,dg:r()<.5,tw:10+r()*30}));
   for(const q of sp){
     const te=t0+q.u*D, a=t-te; if(a<0||a>q.life)continue;
-    const [hx,hy]=pos(te); const [px,py]=ball(hx,hy,q.vx*S,q.vy*S,2.2,260,a);
-    const k=a/q.life, al=(1-k)*(1-k)*twk(t,q.ph,40);
-    const c=rampHex(q.h+k*.75);
-    glow(ctx,px,py,q.sz*4*S,c,al*.35); dot(ctx,px,py,q.sz*S*(1-k*.5),c,al);
-    if(q.sz>5.2)spark(ctx,px,py,q.sz*4*S,c,al*.8,q.dg);
+    const [hx,hy]=pos(te); const [px,py]=ball(hx,hy,q.vx*S,q.vy*S,2.4,220,a);
+    const k=a/q.life, al=Math.pow(1-k,1.5)*(.6+.4*Math.sin(t*q.tw+q.ph));
+    const c=rampHex(q.h+k*.8);
+    glow(ctx,px,py,q.sz*4.5*S,c,al*.3); dot(ctx,px,py,q.sz*S,c,al);
+    if(q.sz>4.6)spark(ctx,px,py,q.sz*4.5*S,c,al*.8,q.dg);
   }
   // --- head
   if(fadeAfter>.01){
-    const [hx,hy]=pos(Math.min(t,t1)); const fl=.85+.15*Math.sin(t*53)+.08*Math.sin(t*31);
-    const grow=U.smooth(U.inv(t0,t0+.25,t));
-    const hs=S*grow*fadeAfter;
-    glow(ctx,hx,hy,260*hs,'#ff9ac2',.18*fl);
-    glow(ctx,hx,hy,140*hs,'#ffd27a',.45*fl);
-    glow(ctx,hx,hy,60*hs,'#fff3c4',.9);
-    glow(ctx,hx,hy,22*hs,'#ffffff',1);
-    // anamorphic streak along flight dir + perpendicular glint
+    const [hx,hy]=pos(Math.min(t,t1)); const fl=.88+.12*Math.sin(t*53)+.06*Math.sin(t*31);
+    const hs=S*U.smooth(U.inv(t0,t0+.25,t))*fadeAfter;
+    glow(ctx,hx,hy,300*hs,'#ff8fb0',.10*fl);
+    glow(ctx,hx,hy,170*hs,'#ffb347',.28*fl);
+    glow(ctx,hx,hy,70*hs,'#ffe28a',.6);
+    glow(ctx,hx,hy,26*hs,'#ffffff',1);
     const ang=Math.atan2(dy,dx);
-    sparkRot(ctx,hx,hy,120*hs*fl,'#fff0b8',.95,ang+.2);
-    sparkRot(ctx,hx,hy,70*hs,'#ffffff',.8,ang+Math.PI/4+t*2);
+    sparkRot(ctx,hx,hy,130*hs*fl,'#ffe7a0',.95,ang+Math.PI/4+.12*Math.sin(t*7));
+    sparkRot(ctx,hx,hy,50*hs,'#ffffff',.6,ang+t*3);
   }
   ctx.restore();
 };
 
 // ---------------------------------------------------------------- impact
-// o: {x,y,t0, scale=1, seed=11, groundY=y (particles settle there)}
+// o: {x,y,t0, scale=1, seed=11, groundY=y (particles settle there)}. Active t0 .. t0+5.5
 FX.impact = function(ctx,t,o){
   const a=t-o.t0; if(a<0||a>5.5)return;
   const S=o.scale||1, seed=o.seed||11, x=o.x, y=o.y, gy=o.groundY!==undefined?o.groundY:y;
-  ctx.save(); ctx.globalCompositeOperation='lighter';
-  // flash (huge, fast decay) + slow warm afterglow
-  const fl=Math.exp(-a*7), ag=Math.exp(-a*.9)*U.smooth(U.inv(0,.08,a));
-  glow(ctx,x,y,900*S*(.6+.4*U.easeOut(U.clamp(a*4))),'#fff3c4',fl*.9);
-  glow(ctx,x,y,380*S,'#ffffff',fl);
-  glow(ctx,x,y-20*S,260*S,'#ffb347',ag*.55);
-  glow(ctx,x,y-10*S,110*S,'#fff3c4',ag*.7);
-  // horizontal anamorphic flare
-  if(fl>.02){ctx.save();ctx.translate(x,y-10*S);ctx.scale(9,.35);glow(ctx,0,0,90*S,'#ffe7a0',fl*.8);ctx.restore();}
-  // flash glint
-  sparkRot(ctx,x,y-8*S,(420*S)*(.5+.5*U.easeOut(U.clamp(a*3))),'#fff0b8',fl*1.2+ag*.25,0);
-  sparkRot(ctx,x,y-8*S,240*S,'#ffffff',fl,Math.PI/4);
-  // ground ring (perspective ellipse) — chromatic edge
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+  const fl=Math.exp(-a*8), ag=Math.exp(-a*.8)*U.smooth(U.inv(0,.1,a));
+  // flash
+  glow(ctx,x,y-30*S,1000*S*(.7+.3*U.easeOut(U.clamp(a*4))),'#ffcf6e',fl*.55);
+  glow(ctx,x,y-20*S,420*S,'#fff0b8',fl*.8);
+  glow(ctx,x,y-10*S,160*S,'#ffffff',fl);
+  // god-ray splash, upward fan (ground hemisphere)
+  const rk=Math.exp(-a*2.2)*U.smooth(U.inv(0,.05,a));
+  if(rk>.01){ctx.save();ctx.beginPath();ctx.rect(x-3000,y-3000,6000,3000+6*S);ctx.clip();
+    texAt(ctx,tinted(rayTex(seed+3,40,.01,.05),'#ffd27a','r'+(seed+3)),x,y,(500+500*U.easeOut(U.clamp(a*2)))*S,a*.05,rk*.9);
+    texAt(ctx,rayTex(seed+3,40,.01,.05),x,y,(300+300*U.easeOut(U.clamp(a*2)))*S,a*.05,rk*.6);
+    ctx.restore();}
+  // warm afterglow pool
+  ctx.save();ctx.translate(x,gy);ctx.scale(1,.32);glow(ctx,0,0,340*S,'#ffb347',ag*.35);glow(ctx,0,0,140*S,'#fff3c4',ag*.4);ctx.restore();
+  glow(ctx,x,y-14*S,70*S,'#fff3c4',ag*.5);
+  // anamorphic flare
+  if(fl>.02){ctx.save();ctx.translate(x,y-12*S);ctx.scale(10,.28);glow(ctx,0,0,100*S,'#ffe7a0',fl*.9);ctx.restore();}
+  sparkRot(ctx,x,y-12*S,(460*S)*(.4+.6*U.easeOut(U.clamp(a*3)))*(fl+.15*ag),'#fff0b8',fl+ag*.3,.0);
+  // ground rings (perspective ellipse) with chromatic edge
   for(let ri=0;ri<2;ri++){
-    const ra=a-ri*.18; if(ra<0||ra>1.4)continue;
-    const k=U.easeOut(U.clamp(ra/1.4)), R=(60+620*k)*S*(ri?0.75:1), fade=Math.pow(1-ra/1.4,1.5);
-    const cols=['#ff7aa8','#ffe28a','#8fe8ff'];
-    for(let c=0;c<3;c++){
-      ctx.strokeStyle=U.rgba(cols[c],(c===1?.75:.45)*fade);
-      ctx.lineWidth=(c===1?10:5)*S*(1-k*.7);
-      ctx.beginPath();ctx.ellipse(x,y,R+(c-1)*7*S,(R+(c-1)*7*S)*.22,0,0,TAU);ctx.stroke();
-    }
+    const ra=a-ri*.2, dur=1.5; if(ra<0||ra>dur)continue;
+    const k=U.easeOut(ra/dur), R=(50+680*k)*S*(ri?0.72:1), f=Math.pow(1-ra/dur,1.6);
+    chromaRing(ctx,x,gy,R,.2,(ri?3:5)*S*(1-k*.5),f,1.4);
   }
-  // airborne shock sphere (fast)
-  if(a<.6){const k=U.easeOut(a/.6), R=(40+420*k)*S, f=1-a/.6;
-    ctx.strokeStyle=U.rgba('#fff3c4',.5*f);ctx.lineWidth=16*S*f;ctx.beginPath();ctx.arc(x,y-10*S,R,Math.PI,TAU);ctx.stroke();
-    ctx.strokeStyle=U.rgba('#ff9ac2',.3*f);ctx.lineWidth=6*S*f;ctx.beginPath();ctx.arc(x,y-10*S,R+12*S,Math.PI,TAU);ctx.stroke();}
+  // airborne shock dome
+  if(a<.7){const k=U.easeOut(a/.7), R=(40+460*k)*S, f=Math.pow(1-a/.7,2);
+    ctx.save();ctx.beginPath();ctx.rect(x-3000,y-3000,6000,3000);ctx.clip();chromaRing(ctx,x,y,R,.9,6*S,f*.8,1.2);ctx.restore();}
   // splash particles: arc up & fall, settle on ground and glimmer
-  const P=table('imp',130,seed,r=>{const an=-Math.PI*(.06+.88*r()), sp=280+r()*900*(r()<.25?1.5:1);
-    return {vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,k:1.2+r()*1.4,life:1.6+r()*2.4,sz:2+r()*6,ph:r()*TAU,h:r()*.3,dg:r()<.5,big:r()<.18};});
+  const P=table('imp',150,seed,r=>{const an=-Math.PI*(.05+.9*r()), sp=260+r()*820*(r()<.25?1.6:1);
+    return {vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,k:1.2+r()*1.4,life:1.6+r()*2.6,sz:1.6+r()*4.5,ph:r()*TAU,h:r()*.2,dg:r()<.5,big:r()<.2,tw:6+r()*10};});
   for(const q of P){
     if(a>q.life)continue; const k=a/q.life;
     let [px,py]=ball(x,y-6*S,q.vx*S,q.vy*S,q.k,1100,a);
     let landed=false; if(py>gy){py=gy;landed=true;}
-    const al=Math.pow(1-k,1.3)*(landed?twk(t,q.ph,9):1)*U.smooth(U.inv(0,.03,a));
-    const c=rampHex(q.h+k*.8), sz=q.sz*S;
-    glow(ctx,px,py,sz*5,c,al*.3);
-    dot(ctx,px,py,sz*1.2,c,al);
-    if(q.big)spark(ctx,px,py,sz*7*(.7+.3*Math.sin(t*12+q.ph)),c,al*.9,q.dg);
-    // motion streak while fast
-    if(a<.5){const [qx,qy]=ball(x,y-6*S,q.vx*S,q.vy*S,q.k,1100,Math.max(0,a-.05));
-      ctx.globalAlpha=1;ctx.strokeStyle=U.rgba(c,.5*al*(1-a/.5));ctx.lineWidth=sz*.8;ctx.beginPath();ctx.moveTo(qx,Math.min(qy,gy));ctx.lineTo(px,py);ctx.stroke();}
+    const al=Math.pow(1-k,1.2)*(landed?.4+.6*twk(t,q.ph,q.tw):1)*U.smooth(U.inv(0,.03,a));
+    const c=rampHex(q.h+k*.85), sz=q.sz*S;
+    if(a<.45&&!landed){const [qx,qy]=ball(x,y-6*S,q.vx*S,q.vy*S,q.k,1100,Math.max(0,a-.045));
+      streak(ctx,qx,qy,px,py,sz,c,al*(1-a/.45));}
+    glow(ctx,px,py,sz*5,c,al*.28);
+    dot(ctx,px,py,sz*1.1,c,al);
+    if(q.big)spark(ctx,px,py,sz*6*(.75+.25*Math.sin(t*q.tw+q.ph)),c,al*.9,q.dg);
   }
   // dust of light: ground-hugging glows spreading out
-  const Dd=table('impd',26,seed+1,r=>({dir:r()<.5?-1:1,sp:150+r()*420,sz:30+r()*60,h:.2+r()*.5}));
-  for(const q of Dd){const k=U.clamp(a/3.5), px=x+q.dir*q.sp*S*U.easeOut(U.clamp(a/2.5)), al=.22*(1-k)*U.smooth(U.inv(.05,.3,a));
-    glow(ctx,px,gy-q.sz*.3*S,q.sz*S,rampHex(q.h),al);}
-  // lingering motes rising
-  const M=table('impm',40,seed+2,r=>({ox:(r()-.5)*360,rise:30+r()*90,ph:r()*TAU,d:.3+r()*1.2,sz:1.5+r()*3,h:.1+r()*.6}));
+  const Dd=table('impd',26,seed+1,r=>({dir:r()<.5?-1:1,sp:150+r()*420,sz:30+r()*60,h:.25+r()*.5}));
+  for(const q of Dd){const k=U.clamp(a/3.5), px=x+q.dir*q.sp*S*U.easeOut(U.clamp(a/2.5)), al=.13*(1-k)*U.smooth(U.inv(.05,.3,a));
+    ctx.save();ctx.translate(px,gy-q.sz*.2*S);ctx.scale(1.6,.5);glow(ctx,0,0,q.sz*S,rampHex(q.h),al);ctx.restore();}
+  // lingering motes rising slowly
+  const M=table('impm',46,seed+2,r=>({ox:(r()-.5)*420,rise:25+r()*80,ph:r()*TAU,d:.3+r()*1.4,sz:1.4+r()*2.6,h:.1+r()*.6}));
   for(const q of M){const b=a-q.d; if(b<0)continue; const k=U.clamp(b/4);
     const px=x+q.ox*S*(.4+.6*U.easeOut(U.clamp(b)))+Math.sin(b*1.7+q.ph)*14*S, py=gy-12*S-q.rise*b*S;
     const al=Math.sin(Math.PI*k)*twk(t,q.ph,5);
-    glow(ctx,px,py,q.sz*6*S,rampHex(q.h),al*.35);dot(ctx,px,py,q.sz*S,rampHex(q.h),al*.9);}
+    glow(ctx,px,py,q.sz*6*S,rampHex(q.h),al*.3);dot(ctx,px,py,q.sz*S,rampHex(q.h),al*.9);}
   ctx.restore();
 };
 
 // ---------------------------------------------------------------- absorb (charge-up)
-// o: {x,y,t0,t1, radius=520, scale=1, seed=21, count=160, color (outer tint, default gold ramp)}
+// o: {x,y,t0,t1, radius=520, scale=1, seed=21, count=170}. Active t0 .. t1 (+0.15)
 FX.absorb = function(ctx,t,o){
   const t0=o.t0,t1=o.t1; if(t<t0||t>t1+.15)return;
   const S=o.scale||1, R=(o.radius||520)*S, seed=o.seed||21, x=o.x, y=o.y, D=t1-t0;
-  const prog=U.clamp((t-t0)/D), build=U.easeIn(prog)*.75+prog*.25;
-  ctx.save(); ctx.globalCompositeOperation='lighter';
-  // converging particles: continuous emission, each repeats on its own period
-  const N=o.count||160;
-  const P=table('abs',N,seed,r=>({off:r()*3,per:.9+r()*.9,a0:r()*TAU,spin:(1.2+r()*1.8)*(r()<.85?1:-1),rr:.55+r()*.6,sz:1.5+r()*4,h:.15+r()*.75,thr:r(),ph:r()*TAU,dg:r()<.5}));
+  const prog=U.clamp((t-t0)/D), build=U.easeIn(prog)*.7+prog*.3;
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+  // ambient warm gathering haze
+  glow(ctx,x,y,R*1.1,'#ff9a78',.06*build);
+  glow(ctx,x,y,R*.6,'#ffb347',.1*build);
+  const N=o.count||170;
+  const P=table('abs',N,seed,r=>({off:r()*3,per:1+r()*1,a0:r()*TAU,spin:(1.6+r()*1.6)*(r()<.85?1:-1),rr:.5+r()*.65,sz:1.4+r()*3.6,h:.25+r()*.7,thr:r(),ph:r()*TAU,dg:r()<.5}));
   for(const q of P){
-    if(q.thr>.25+.75*build)continue; // more particles as it builds
-    const per=q.per*(1-.45*prog), age=((t-t0+q.off)%per+per)%per, k=age/per;
-    if(t-t0<age)continue; // not emitted yet
-    const e=U.easeIn(k)*.85+k*.15;
-    const pr=(r)=>{const ee=U.easeIn(r)*.85+r*.15; const rad=R*q.rr*(1-ee), an=q.a0+q.spin*ee*2.2+Math.floor((t-t0+q.off)/per)*1.7;
-      return [x+Math.cos(an)*rad, y+Math.sin(an)*rad*.85];};
-    const [px,py]=pr(k), [bx,by]=pr(Math.max(0,k-.07));
-    const al=U.smooth(U.inv(0,.25,k))*(1-U.smooth(U.inv(.85,1,k)))*(.5+.5*build);
-    const c=rampHex(q.h*(1-e)); // warm/rose far away, white-hot near the core
-    ctx.globalAlpha=1; ctx.strokeStyle=U.rgba(c,.55*al); ctx.lineWidth=q.sz*S*.9; ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(px,py);ctx.stroke();
-    glow(ctx,px,py,q.sz*5*S,c,al*.35); dot(ctx,px,py,q.sz*1.1*S,c,al);
-    if(q.sz>4.6)spark(ctx,px,py,q.sz*6*S,c,al*.8,q.dg);
+    if(q.thr>.3+.7*build)continue;
+    const per=q.per*(1-.4*prog), cyc=(t-t0+q.off)/per, k=cyc-Math.floor(cyc);
+    if(t-t0<k*per)continue;
+    const rot=Math.floor(cyc)*1.7;
+    const pr=r=>{const ee=Math.pow(r,2.2); const rad=R*q.rr*(1-ee), an=q.a0+rot+q.spin*Math.pow(r,1.6)*2.4;
+      return [x+Math.cos(an)*rad, y+Math.sin(an)*rad*.8];};
+    const al=U.smooth(U.inv(0,.2,k))*(1-U.smooth(U.inv(.88,1,k)))*(.45+.55*build);
+    const c=rampHex(q.h*(1-Math.pow(k,1.5)));
+    // curved streak: 4 samples behind
+    let prev=pr(Math.max(0,k-.12));
+    for(let j=1;j<=4;j++){const p=pr(Math.max(0,k-.12+.03*j)), f=j/4;
+      ctx.strokeStyle=U.rgba(c,al*.45*f);ctx.lineWidth=q.sz*S*(.4+.6*f);ctx.beginPath();ctx.moveTo(prev[0],prev[1]);ctx.lineTo(p[0],p[1]);ctx.stroke();prev=p;}
+    const [px,py]=prev;
+    glow(ctx,px,py,q.sz*5*S,c,al*.3); dot(ctx,px,py,q.sz*1.1*S,c,al);
+    if(q.sz>4.2)spark(ctx,px,py,q.sz*5*S,c,al*.8,q.dg);
   }
   // contracting rings
-  for(let i=0;i<4;i++){
-    const per=1.1-.5*prog, k=(((t-t0)/per+i/4)%1);
-    const rr=R*.9*(1-U.easeIn(k)), al=Math.sin(Math.PI*k)*.28*build;
-    ctx.globalAlpha=1;ctx.strokeStyle=U.rgba(i%2?'#ffe28a':'#ffb0c8',al);ctx.lineWidth=(2+3*k)*S;
-    ctx.beginPath();ctx.arc(x,y,rr,0,TAU);ctx.stroke();
+  for(let i=0;i<3;i++){
+    const per=1.2-.5*prog, k=(((t-t0)/per+i/3)%1);
+    const rr=R*.95*(1-U.easeIn(k)), al=Math.sin(Math.PI*k)*.35*build;
+    chromaRing(ctx,x,y,rr,1,2*S,al,1.5);
   }
   // core: growing, pulsing shimmer
-  const pulse=.8+.2*Math.sin(t*(10+30*prog))+.1*Math.sin(t*47);
-  glow(ctx,x,y,(120+380*build)*S,'#ffb347',.25*build*pulse);
-  glow(ctx,x,y,(60+180*build)*S,'#fff3c4',.6*build*pulse);
-  glow(ctx,x,y,(20+50*build)*S,'#ffffff',.9*build);
-  // rays starting to leak at the end
-  if(prog>.5){const rk=U.inv(.5,1,prog); const n=12;
-    ctx.globalAlpha=1;
-    const gr=ctx.createRadialGradient(x,y,0,x,y,R*1.1*rk);
-    gr.addColorStop(0,U.rgba('#fff3c4',.35*rk));gr.addColorStop(1,U.rgba('#ffd27a',0));
-    ctx.fillStyle=gr; ctx.beginPath();
-    for(let i=0;i<n;i++){const an=i/n*TAU+t*.6+U.hash(i+seed)*.4, w=.025+.02*U.hash(i*3+seed);
-      ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(an-w)*R*1.1,y+Math.sin(an-w)*R*1.1);ctx.lineTo(x+Math.cos(an+w)*R*1.1,y+Math.sin(an+w)*R*1.1);ctx.closePath();}
-    ctx.fill();
-    sparkRot(ctx,x,y,(90+200*rk)*S*pulse,'#fff0b8',.9*rk,t*1.5);
-  }
+  const pulse=.82+.12*Math.sin(t*(8+34*prog))+.06*Math.sin(t*57);
+  glow(ctx,x,y,(140+360*build)*S,'#ffb347',.22*build*pulse);
+  glow(ctx,x,y,(60+170*build)*S,'#ffe28a',.45*build*pulse);
+  glow(ctx,x,y,(18+55*build)*S,'#ffffff',.85*build);
+  // rays leaking out near the end
+  if(prog>.45){const rk=U.smooth(U.inv(.45,1,prog));
+    texAt(ctx,tinted(rayTex(seed+5,26,.008,.03),'#ffd27a','r'+(seed+5)),x,y,R*(.5+.7*rk),t*.25,.75*rk*pulse);
+    sparkRot(ctx,x,y,(80+220*rk)*S*pulse,'#fff0b8',.9*rk,Math.PI/4*Math.sin(t*.7));}
   ctx.restore();
 };
 
 // ---------------------------------------------------------------- burst
-// o: {x,y,t0, scale=1, seed=31, groundY (optional: shower settles there), count=320}
+// o: {x,y,t0, scale=1, seed=31, groundY (optional: glitter settles there), count=320}. Active t0 .. t0+8
 FX.burst = function(ctx,t,o){
   const a=t-o.t0; if(a<0||a>8)return;
   const S=o.scale||1, seed=o.seed||31, x=o.x, y=o.y;
-  ctx.save(); ctx.globalCompositeOperation='lighter';
-  const fl=Math.exp(-a*5), ag=Math.exp(-a*.45)*U.smooth(U.inv(0,.06,a));
-  // --- flash + afterglow
-  glow(ctx,x,y,1500*S,'#fff3c4',fl*.85);
-  glow(ctx,x,y,520*S,'#ffffff',fl);
-  glow(ctx,x,y,700*S,'#ffb347',ag*.22);
-  glow(ctx,x,y,320*S,'#ffe28a',ag*.35);
-  glow(ctx,x,y,130*S,'#fffbe6',ag*.5);
-  // --- god rays: two rotating layers, single path each, radial gradient fill
-  const rayK=U.easeOut(U.clamp(a/.5)), rayF=Math.pow(1-U.clamp(a/4.5),1.6);
-  if(rayF>.01){
-    const layers=[{n:28,len:1500,w:.035,rot:.05,col:'#ffe7a0',al:.55,s:seed},{n:18,len:1100,w:.012,rot:-.09,col:'#ffffff',al:.7,s:seed+9},{n:14,len:1800,w:.06,rot:.02,col:'#ff9ac2',al:.18,s:seed+17}];
-    for(const L of layers){
-      const len=L.len*S*(.3+.7*rayK);
-      const gr=ctx.createRadialGradient(x,y,0,x,y,len);
-      gr.addColorStop(0,U.rgba(L.col,L.al*rayF));gr.addColorStop(.25,U.rgba(L.col,L.al*.5*rayF));gr.addColorStop(1,U.rgba(L.col,0));
-      ctx.globalAlpha=1; ctx.fillStyle=gr; ctx.beginPath();
-      for(let i=0;i<L.n;i++){const h=U.hash(i*7.31+L.s), an=(i+h*.8)/L.n*TAU+a*L.rot, w=L.w*(.4+1.2*U.hash(i*3.7+L.s)), ll=len*(.55+.45*U.hash(i*1.9+L.s));
-        ctx.moveTo(x+Math.cos(an+Math.PI/2)*3*S,y+Math.sin(an+Math.PI/2)*3*S);ctx.lineTo(x+Math.cos(an-w)*ll,y+Math.sin(an-w)*ll);ctx.lineTo(x+Math.cos(an+w)*ll,y+Math.sin(an+w)*ll);ctx.closePath();}
-      ctx.fill();
-    }
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+  const fl=Math.exp(-a*5.5), ag=Math.exp(-a*.5)*U.smooth(U.inv(0,.08,a));
+  // --- flash + afterglow (warm, layered)
+  glow(ctx,x,y,1600*S,'#ffb347',fl*.45);
+  glow(ctx,x,y,800*S,'#fff0b8',fl*.7);
+  glow(ctx,x,y,260*S,'#ffffff',fl);
+  glow(ctx,x,y,900*S,'#ff8fb0',ag*.08);
+  glow(ctx,x,y,520*S,'#ffb347',ag*.18);
+  glow(ctx,x,y,240*S,'#ffe28a',ag*.3);
+  glow(ctx,x,y,90*S,'#fffbe6',ag*.45);
+  // --- god rays: blurred ray textures, slow counter-rotation, grow fast & fade
+  const rg=U.easeOut(U.clamp(a/.45)), rf=Math.pow(1-U.clamp(a/3.6),1.7)*U.smooth(U.inv(0,.04,a));
+  if(rf>.01){
+    const RA=rayTex(seed,48,.006,.035), RB=rayTex(seed+13,30,.015,.06);
+    texAt(ctx,tinted(RB,'#ff9a78','b'+seed),x,y,1900*S*(.4+.6*rg),-a*.06,rf*.55);
+    texAt(ctx,tinted(RA,'#ffd27a','a'+seed),x,y,1500*S*(.35+.65*rg),a*.08,rf*.95);
+    texAt(ctx,RA,x,y,900*S*(.35+.65*rg),a*.08,rf*.7);
   }
+  // anamorphic flare
+  if(fl>.02){ctx.save();ctx.translate(x,y);ctx.scale(12,.22);glow(ctx,0,0,120*S,'#ffe7a0',fl);ctx.restore();}
   // --- shockwave rings with chromatic edge
   for(let ri=0;ri<3;ri++){
-    const ra=a-ri*.22, dur=1.6+ri*.5; if(ra<0||ra>dur)continue;
-    const k=U.easeOut(ra/dur), R=(40+(1250-ri*300)*k)*S, f=Math.pow(1-ra/dur,1.4);
-    const cols=['#ff6f9f','#fff0b8','#7fe0ff'], wd=(ri?8:18)*S*(1-k*.6);
-    for(let c=0;c<3;c++){ctx.globalAlpha=1;ctx.strokeStyle=U.rgba(cols[c],(c===1?.8:.5)*f);ctx.lineWidth=wd*(c===1?1:.55);
-      ctx.beginPath();ctx.arc(x,y,R+(c-1)*wd*.8,0,TAU);ctx.stroke();}
-    // soft inner fill of the ring (heat haze)
-    if(ri===0){const gr=ctx.createRadialGradient(x,y,R*.6,x,y,R);gr.addColorStop(0,'rgba(255,240,190,0)');gr.addColorStop(1,U.rgba('#ffe7a0',.12*f));
-      ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,R,0,TAU);ctx.fill();}
+    const ra=a-ri*.2, dur=1.5+ri*.5; if(ra<0||ra>dur)continue;
+    const k=U.easeOut(ra/dur), R=(40+(1300-ri*330)*k)*S, f=Math.pow(1-ra/dur,1.5);
+    chromaRing(ctx,x,y,R,1,(ri?3.5:7)*S*(1-k*.5),f*(ri?.7:1),1.6);
+    if(ri===0){const gr=ctx.createRadialGradient(x,y,R*.7,x,y,R);gr.addColorStop(0,'rgba(255,240,190,0)');gr.addColorStop(1,U.rgba('#ffe7a0',.08*f));
+      ctx.globalAlpha=1;ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,R,0,TAU);ctx.fill();}
   }
   // --- hero glint
-  sparkRot(ctx,x,y,(700*U.easeOut(U.clamp(a*3))*fl+220*ag)*S,'#fff0b8',.9*fl+.5*ag,a*.3);
-  sparkRot(ctx,x,y,(380*fl+120*ag)*S,'#ffffff',.9*fl+.4*ag,Math.PI/4-a*.2);
-  // --- radial sparkles (hundreds): drag + slight gravity
+  sparkRot(ctx,x,y,(760*U.easeOut(U.clamp(a*3))*fl+200*ag)*S,'#fff0b8',fl+.55*ag,.08*Math.sin(a*1.3));
+  sparkRot(ctx,x,y,(300*fl+90*ag)*S,'#ffffff',.7*fl+.35*ag,Math.PI/4);
+  // --- radial sparkles (hundreds): drag + slight gravity, white-hot -> gold -> rose
   const N=o.count||320;
-  const P=table('bst',N,seed,r=>{const an=r()*TAU, sp=(250+r()*1500)*(r()<.15?1.4:1);
-    return {vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,k:1.6+r()*1.6,life:1.4+r()*2.8,sz:1.5+r()*5.5,ph:r()*TAU,h:r()*.25,dg:r()<.5,big:r()<.2,tw:6+r()*14};});
+  const P=table('bst',N,seed,r=>{const an=r()*TAU, sp=(220+r()*1400)*(r()<.15?1.45:1);
+    return {vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,k:1.5+r()*1.6,life:1.4+r()*2.8,sz:1.4+r()*4.6,ph:r()*TAU,h:r()*.15,dg:r()<.5,big:r()<.2,tw:6+r()*14};});
   for(const q of P){
     if(a>q.life)continue; const k=a/q.life;
     const [px,py]=ball(x,y,q.vx*S,q.vy*S,q.k,90,a);
-    const al=Math.pow(1-k,1.2)*(k>.3?twk(t,q.ph,q.tw):1);
-    const c=rampHex(q.h+k*.9), sz=q.sz*S*(1-k*.4);
-    if(a<.6){const [qx,qy]=ball(x,y,q.vx*S,q.vy*S,q.k,90,Math.max(0,a-.06));
-      ctx.globalAlpha=1;ctx.strokeStyle=U.rgba(c,.6*al*(1-a/.6));ctx.lineWidth=sz*.9;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(qx,qy);ctx.lineTo(px,py);ctx.stroke();}
-    glow(ctx,px,py,sz*5,c,al*.28); dot(ctx,px,py,sz*1.2,c,al);
-    if(q.big)spark(ctx,px,py,sz*8,c,al,q.dg);
+    const al=Math.pow(1-k,1.1)*(k>.25?.35+.65*twk(t,q.ph,q.tw):1);
+    const c=rampHex(q.h+k*.95), sz=q.sz*S*(1-k*.35);
+    if(a<.55){const [qx,qy]=ball(x,y,q.vx*S,q.vy*S,q.k,90,Math.max(0,a-.05));streak(ctx,qx,qy,px,py,sz,c,al*(1-a/.55));}
+    glow(ctx,px,py,sz*5,c,al*.26); dot(ctx,px,py,sz*1.1,c,al);
+    if(q.big)spark(ctx,px,py,sz*7,c,al,q.dg);
   }
-  // --- glitter shower: slow falling, swaying, twinkling (starts ~0.3s)
-  const G=table('bsg',140,seed+5,r=>({ox:(r()-.5)*1400,oy:-r()*700-100,d:.15+r()*.9,vy:40+r()*90,sw:20+r()*50,ph:r()*TAU,sz:1.5+r()*3.5,h:.05+r()*.8,life:3+r()*4,dg:r()<.5,tw:4+r()*9}));
+  // --- glitter shower: slow falling, swaying, twinkling
+  const G=table('bsg',150,seed+5,r=>({ox:(r()-.5)*1500,oy:-r()*700-80,d:.15+r()*.9,vy:35+r()*80,sw:20+r()*50,ph:r()*TAU,sz:1.4+r()*3.2,h:.08+r()*.75,life:3+r()*4,dg:r()<.5,tw:4+r()*9}));
   for(const q of G){
     const b=a-q.d; if(b<0||b>q.life)continue; const k=b/q.life;
-    const out=U.easeOut(U.clamp(b/.9));
-    let px=x+q.ox*S*out+Math.sin(b*1.6+q.ph)*q.sw*S, py=y+q.oy*S*out+q.vy*b*S;
+    const out=U.easeOut(U.clamp(b/1.1));
+    const px=x+q.ox*S*out+Math.sin(b*1.6+q.ph)*q.sw*S; let py=y+q.oy*S*out+q.vy*b*S;
     if(o.groundY!==undefined&&py>o.groundY)py=o.groundY;
-    const al=Math.sin(Math.PI*Math.pow(k,.6))*twk(t,q.ph,q.tw);
+    const al=Math.sin(Math.PI*Math.pow(k,.6))*(.25+.75*Math.pow(twk(t,q.ph,q.tw),2));
     const c=rampHex(q.h);
-    glow(ctx,px,py,q.sz*5*S,c,al*.3); dot(ctx,px,py,q.sz*S,c,al);
-    if(q.sz>3.5)spark(ctx,px,py,q.sz*6*S,c,al*.9,q.dg);
+    glow(ctx,px,py,q.sz*5*S,c,al*.28); dot(ctx,px,py,q.sz*S,c,al);
+    if(q.sz>3.2)spark(ctx,px,py,q.sz*6*S,c,al*.9,q.dg);
   }
   ctx.restore();
 };
+
 
 // ---------------------------------------------------------------- trail
 // o: {path:(tt)=>[x,y], t0, t1, life=1.4, rate=70 (particles/s), seed=41, scale=1, head=true}
@@ -407,9 +432,10 @@ FX.bloom = function(ctx,strength,o){
   const w1=W>>2,h1=H>>2,w2=W>>3,h2=H>>3,w3=W>>4,h3=H>>4;
   const A=U.buf('fxBloomA',w1,h1),B=U.buf('fxBloomB',w2,h2),C=U.buf('fxBloomC',w3,h3),Bb=U.buf('fxBloomBb',w2,h2);
   const ga=A.getContext('2d'),gb=B.getContext('2d'),gc=C.getContext('2d'),gbb=Bb.getContext('2d');
-  const th=(o&&o.threshold!==undefined)?o.threshold:.35;
-  const c=1/(1-th); // contrast factor so that `th` maps to ~0 after brightness shift
-  ga.globalCompositeOperation='copy';ga.filter=`brightness(${(1-th*.5).toFixed(3)}) contrast(${c.toFixed(3)}) saturate(1.25)`;
+  const th=(o&&o.threshold!==undefined)?o.threshold:.42;
+  // brightness(b) then contrast(c) == (v - th)/(1 - th): a soft threshold
+  const bb=1/(1+th), cc=(1+th)/(1-th);
+  ga.globalCompositeOperation='copy';ga.filter=`brightness(${bb.toFixed(4)}) contrast(${cc.toFixed(4)}) saturate(1.15)`;
   ga.drawImage(cv,0,0,w1,h1); ga.filter='none';
   gb.globalCompositeOperation='copy';gb.filter='blur(2px)';gb.drawImage(A,0,0,w2,h2);gb.filter='none';
   gc.globalCompositeOperation='copy';gc.filter='blur(3px)';gc.drawImage(B,0,0,w3,h3);gc.filter='none';
@@ -457,6 +483,18 @@ FX.fade = function(ctx,alpha){
 // ---------------------------------------------------------------- title (screen space)
 // o: {t0, x=W/2, y=H*0.34, size=118, alpha=1, sub='The Star Lighthouse'}
 const TITLE='ほしのとうだい';
+// cached blurred glow of one glyph (built once per glyph/size)
+function glyphGlow(ch,FS,font){
+  const k='gl'+ch+FS; if(sprites[k])return sprites[k];
+  const S=Math.ceil(FS*2.4),c=mkCanvas(S,S),g=c.getContext('2d');
+  g.font=font;g.textAlign='center';g.textBaseline='middle';
+  g.filter=`blur(${(FS*.16).toFixed(1)}px)`;g.fillStyle='#ffc46a';g.fillText(ch,S/2,S/2);
+  g.globalCompositeOperation='lighter';
+  g.filter=`blur(${(FS*.05).toFixed(1)}px)`;g.fillStyle='rgba(255,243,196,.8)';g.fillText(ch,S/2,S/2);
+  g.filter=`blur(${(FS*.4).toFixed(1)}px)`;g.fillStyle='rgba(255,150,120,.7)';g.fillText(ch,S/2,S/2);
+  g.filter='none';
+  return sprites[k]=c;
+}
 FX.title = function(ctx,t,o){
   const t0=o.t0; if(t<t0-.1)return;
   const A=o.alpha===undefined?1:o.alpha; if(A<=0)return;
@@ -478,15 +516,13 @@ FX.title = function(ctx,t,o){
     const e=U.easeOut(k), px=centers[i], py=Y+(1-e)*FS*.18, flash=Math.exp(-Math.max(0,t-s-.25)*3)*U.smooth(U.inv(0,.25,t-s));
     // glow layer
     ctx.globalCompositeOperation='lighter';
-    ctx.globalAlpha=A*e*.9; ctx.shadowColor=U.rgba('#ffcf6e',1); ctx.shadowBlur=FS*.45; ctx.fillStyle=U.rgba('#ffcf6e',.35);
-    ctx.fillText(chars[i],px,py);
-    ctx.shadowBlur=FS*.12; ctx.shadowColor=U.rgba('#fff3c4',1); ctx.fillStyle=U.rgba('#fff3c4',.25);
-    ctx.fillText(chars[i],px,py);
-    ctx.shadowBlur=0;
-    // crisp letter
+    const gg=glyphGlow(chars[i],FS,ctx.font), breathe=.85+.15*Math.sin(t*1.6+i*.8);
+    ctx.globalAlpha=Math.min(1,A*e*(.75*breathe+flash*.6)); ctx.drawImage(gg,px-gg.width/2,py-gg.height/2);
+    // crisp letter, cream -> warm gold vertical gradient
     ctx.globalCompositeOperation='source-over';
     ctx.globalAlpha=A*U.smooth(k);
-    ctx.fillStyle=U.mixHex('#ffffff','#fff1d0',.5); ctx.fillText(chars[i],px,py);
+    const lg=ctx.createLinearGradient(0,py-FS*.5,0,py+FS*.5);lg.addColorStop(0,'#ffffff');lg.addColorStop(.55,'#fff4d6');lg.addColorStop(1,'#ffd9a0');
+    ctx.fillStyle=lg; ctx.fillText(chars[i],px,py);
     // birth flash & glint
     if(flash>.01){ctx.globalCompositeOperation='lighter';glow(ctx,px,py,FS*.9,'#ffe28a',flash*.5*A);spark(ctx,px+FS*.28,py-FS*.3,FS*.5*flash,'#ffffff',flash*A);}
   }
@@ -510,7 +546,7 @@ FX.title = function(ctx,t,o){
   if(sub&&sbk>0){ctx.globalCompositeOperation='source-over';ctx.globalAlpha=A*sbk*.85;
     ctx.font=`italic ${Math.round(FS*.24)}px 'Liberation Serif', 'DejaVu Serif', serif`;
     try{ctx.letterSpacing=`${Math.round(FS*.06)}px`;}catch(e){}
-    ctx.shadowColor='rgba(255,200,120,.7)';ctx.shadowBlur=12;ctx.fillStyle='#f3e7ff';
+    ctx.fillStyle='#f3e7ff';
     ctx.fillText(sub,X,Y+FS*1.12+(1-sbk)*8);}
   // a few drifting sparkles around the title (deterministic)
   const tk=U.smooth(U.inv(t0+.5,t0+2,t))*A;

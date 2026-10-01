@@ -39,12 +39,12 @@ function sparkle(ctx, x, y, r){
 
 // expression rig parameters
 const EXPR = {
-  hurt:      {tuftA:-.22, tuftL:.94, armA:.30, armL:.92, wave:0, eye:'squint', lid:0, tilt:0,  blush:.55, look:[0,0]},
-  sad:       {tuftA:.30, tuftL:.88, armA:.42, armL:.9,  wave:0, eye:'open', lid:.34, lidTilt:.55, blush:.4, look:[0,.25], tears:1},
+  hurt:      {tuftA:-.22, tuftL:.94, armA:.2, armL:.92, wave:0, eye:'squint', lid:0, tilt:0,  blush:.55, look:[0,0]},
+  sad:       {tuftA:.30, tuftL:.9, armA:.24, armL:.92,  wave:0, eye:'open', lid:.34, lidTilt:.55, blush:.4, look:[0,.25], tears:1},
   hope:      {tuftA:.04, tuftL:1.04,armA:-.08,armL:.98, wave:0, eye:'open', lid:0, sparkle:1, blush:.6, look:[0,-.35], big:1.08},
-  surprised: {tuftA:0,   tuftL:1.12,armA:-.42,armL:1.04,wave:0, eye:'open', lid:0, blush:.35, look:[0,0], big:1.16, small:1},
-  joy:       {tuftA:0,   tuftL:1.06,armA:-.36,armL:1.04,wave:1, eye:'happy', lid:0, blush:1, look:[0,0]},
-  gentle:    {tuftA:.12, tuftL:1.0, armA:.08, armL:.97, wave:.25,eye:'open', lid:.12, lidTilt:-.1, lower:.38, blush:.75, look:[0,.1]},
+  surprised: {tuftA:0,   tuftL:1.12,armA:-.26,armL:1.04,wave:0, eye:'open', lid:0, blush:.35, look:[0,0], big:1.16, small:1},
+  joy:       {tuftA:0,   tuftL:1.06,armA:-.12,armL:1.04,wave:1, eye:'happy', lid:0, blush:1, look:[0,0]},
+  gentle:    {tuftA:.12, tuftL:1.0, armA:.08, armL:.97, wave:.25,eye:'open', lid:0, lower:.3, blush:.75, look:[0,.1]},
 };
 
 function draw(ctx, t, o){
@@ -132,13 +132,13 @@ function draw(ctx, t, o){
   const dt = -Math.PI/2;
   const tuftSway = .07*Math.sin(ts*1.7) + .04*Math.sin(ts*3.9) + (E.tuftA>.2 ? .06*Math.sin(ts*.9):0);
   // [angle, length, width]
-  tips.push([dt + E.tuftA + tuftSway, E.tuftL*(1+.02*Math.sin(ts*2.6)), .25]);
+  tips.push([dt + E.tuftA + tuftSway, E.tuftL*(1+.02*Math.sin(ts*2.6)), .27]);
   const armSwing = .05*Math.sin(ts*2.2+.5);
-  tips.push([dt + TAU/5 + E.armA + armSwing - waveAmt*(.35 + .32*wv), E.armL + waveAmt*.06, .22]); // right arm (screen right)
-  tips.push([dt + 2*TAU/5 - .04 + .03*Math.sin(ts*1.3), .92, .24]);   // right foot
-  tips.push([dt + 3*TAU/5 + .04 - .03*Math.sin(ts*1.3), .92, .24]);   // left foot
-  tips.push([dt + 4*TAU/5 - E.armA - armSwing + waveAmt*.12*Math.sin(ts*9.5+1.2), E.armL, .22]); // left arm
-  const dl = .42, kk = R*.3;
+  tips.push([dt + TAU/5 + E.armA + armSwing - waveAmt*(.12 + .26*wv), E.armL + waveAmt*.06, .25]); // right arm (screen right)
+  tips.push([dt + 2*TAU/5 - .04 + .03*Math.sin(ts*1.3), .92, .26]);   // right foot
+  tips.push([dt + 3*TAU/5 + .04 - .03*Math.sin(ts*1.3), .92, .26]);   // left foot
+  tips.push([dt + 4*TAU/5 - E.armA - armSwing + waveAmt*.12*Math.sin(ts*9.5+1.2), E.armL, .25]); // left arm
+  const dl = -.3, kk = R*.38;
   function starPath(){
     ctx.beginPath();
     for (let i=0;i<5;i++){
@@ -361,15 +361,30 @@ function drawEye(ctx, ex, ey, sd, rx, ry, E, b, blink, lookX, lookY, lidCol, lin
     ctx.beginPath(); ctx.arc(ex, ey - ry*.15, rx, .5, Math.PI - .5); ctx.stroke();
     return;
   }
+  // lids are expressed as clip curves (no colour-matching patches needed)
+  const tilt = (E.lidTilt||0) * (1 - blink);   // + => inner corner raised (sad)
+  const lidY = ey - ry + 2*ry*lid;
+  const yi = lidY - tilt*ry*.5, yo = lidY + tilt*ry*.5; // inner (toward centre) / outer
+  const xi = ex - sd*rx*1.25, xo = ex + sd*rx*1.25;
+  const lidMidY = (yi+yo)/2 + ry*.18*(1-tilt*.5)*(1-lid*.6);
+  const lowY = E.lower ? ey + ry - 2*ry*E.lower : 0;
   ctx.save();
-  ctx.beginPath(); ctx.ellipse(ex, ey, rx, ry, 0, 0, TAU);
+  const eyeP = new Path2D(); eyeP.ellipse(ex, ey, rx, ry, 0, 0, TAU);
+  ctx.clip(eyeP);
+  if (lid > .01){
+    const c = new Path2D(); c.moveTo(xo, yo); c.quadraticCurveTo(ex, lidMidY, xi, yi);
+    c.lineTo(xi, ey + ry*2); c.lineTo(xo, ey + ry*2); c.closePath(); ctx.clip(c);
+  }
+  if (E.lower){
+    const c = new Path2D(); c.moveTo(ex - rx*1.3, ey - ry*2); c.lineTo(ex - rx*1.3, lowY + ry*.35);
+    c.quadraticCurveTo(ex, lowY - ry*.45, ex + rx*1.3, lowY + ry*.35); c.lineTo(ex + rx*1.3, ey - ry*2); c.closePath(); ctx.clip(c);
+  }
   // glossy eye: deep plum-navy, glowing warmer at the bottom
   let gr = ctx.createLinearGradient(0, ey - ry, 0, ey + ry);
   gr.addColorStop(0, '#120c2a');
   gr.addColorStop(.55, b>.5 ? '#2c1430' : '#1e1a44');
   gr.addColorStop(1, U.mixHex('#3d4a9a', '#a3501c', b));
-  ctx.fillStyle = gr; ctx.fill();
-  ctx.clip();
+  ctx.fillStyle = gr; ctx.fillRect(ex - rx, ey - ry, rx*2, ry*2);
   const lx = lookX*rx*.25, ly = lookY*ry*.2;
   // iris glow crescent
   const ic = U.mixHex('#7d93e6', '#ffb347', b);
@@ -379,43 +394,32 @@ function drawEye(ctx, ex, ey, sd, rx, ry, E, b, blink, lookX, lookY, lidCol, lin
   // pupil
   ctx.fillStyle = 'rgba(8,4,20,.75)';
   ctx.beginPath(); ctx.ellipse(ex+lx, ey+ly+ry*.05, rx*(E.small? .38:.5), ry*(E.small? .38:.52), 0, 0, TAU); ctx.fill();
-  // catch-lights (shift slightly opposite to look for gloss)
-  const tw = .9 + .1*Math.sin(ts*4 + sd);
+  // catch-lights; pushed down a bit under a heavy lid so they stay visible
+  const tw = .9 + .1*Math.sin(ts*4 + sd), cy0 = Math.max(0, lid - .25)*ry*1.2;
   ctx.fillStyle = '#ffffff';
-  ctx.beginPath(); ctx.ellipse(ex + lx*.4 - rx*.32, ey + ly*.4 - ry*.38, rx*.42*tw, ry*.34*tw, -.4, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(ex + lx*.4 - rx*.32, ey + ly*.4 - ry*.38 + cy0, rx*.42*tw, ry*.34*tw, -.4, 0, TAU); ctx.fill();
   ctx.beginPath(); ctx.arc(ex + lx*.4 + rx*.38, ey + ly*.4 + ry*.36, rx*.17, 0, TAU); ctx.fill();
   if (E.sparkle || b > .8){ // twinkle star in the eye
     const s2 = (E.sparkle? 1 : .6) * (.75 + .25*Math.sin(ts*5 + sd*2));
     ctx.globalAlpha = .95;
-    ctx.beginPath(); sparkle(ctx, ex + lx*.4 + rx*.3, ey + ly*.4 - ry*.05, rx*.42*s2); ctx.fill();
+    ctx.beginPath(); sparkle(ctx, ex + lx*.4 + rx*.3, ey + ly*.4 - ry*.05 + cy0*.5, rx*.42*s2); ctx.fill();
     ctx.globalAlpha = 1;
   }
   ctx.fillStyle = 'rgba(255,255,255,.35)';
   ctx.beginPath(); ctx.arc(ex - rx*.45, ey + ry*.5, rx*.09, 0, TAU); ctx.fill();
-  // eyelid (sad / gentle / blink)
-  let lidY = 0;
-  if (lid > .01){
-    const tilt = (E.lidTilt||0) * (1 - blink);   // + => inner corner raised (sad)
-    lidY = ey - ry + 2*ry*lid;
-    const yi = lidY - tilt*ry*.5, yo = lidY + tilt*ry*.5; // inner (toward centre) / outer
-    const xi = ex - sd*rx*1.2, xo = ex + sd*rx*1.2;
-    ctx.fillStyle = lidCol;
-    ctx.beginPath();
-    ctx.moveTo(xi, ey - ry*1.3); ctx.lineTo(xo, ey - ry*1.3);
-    ctx.lineTo(xo, yo); ctx.quadraticCurveTo(ex, (yi+yo)/2 + ry*.18*(1-tilt*.5), xi, yi);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = lineCol; ctx.lineWidth = R*.035;
-    ctx.beginPath(); ctx.moveTo(xo, yo); ctx.quadraticCurveTo(ex, (yi+yo)/2 + ry*.18*(1-tilt*.5), xi, yi); ctx.stroke();
-  }
-  // smiling lower lid (cheeks push up)
-  if (E.lower){
-    const ly0 = ey + ry - 2*ry*E.lower;
-    ctx.fillStyle = lidCol;
-    ctx.beginPath(); ctx.moveTo(ex - rx*1.3, ey + ry*1.3);
-    ctx.lineTo(ex - rx*1.3, ly0 + ry*.35); ctx.quadraticCurveTo(ex, ly0 - ry*.45, ex + rx*1.3, ly0 + ry*.35);
-    ctx.lineTo(ex + rx*1.3, ey + ry*1.3); ctx.closePath(); ctx.fill();
-  }
   ctx.restore();
+  ctx.strokeStyle = lineCol;
+  if (lid > .01){ // lid line
+    ctx.lineWidth = R*.038;
+    ctx.save(); ctx.clip(new Path2D(`M${ex-rx*1.02} ${ey-ry*1.4}H${ex+rx*1.02}V${ey+ry*1.4}H${ex-rx*1.02}Z`));
+    ctx.beginPath(); ctx.moveTo(xo, yo); ctx.quadraticCurveTo(ex, lidMidY, xi, yi); ctx.stroke();
+    ctx.restore();
+  }
+  if (E.lower){ // soft lower smile line
+    ctx.lineWidth = R*.022; ctx.globalAlpha = .55;
+    ctx.beginPath(); ctx.moveTo(ex - rx*.85, lowY + ry*.28); ctx.quadraticCurveTo(ex, lowY - ry*.3, ex + rx*.85, lowY + ry*.28); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   // upper lash line + cute outer lash flick
   if (lid < .15){
     ctx.strokeStyle = lineCol; ctx.lineWidth = R*.038;
@@ -431,19 +435,19 @@ function drawMouth(ctx, mx, my, vis, expr, R, b, lineCol, ts){
   ctx.save();
   ctx.translate(mx, my);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = lineCol; ctx.lineWidth = R*.035;
-  const s = R;
+  ctx.strokeStyle = lineCol; ctx.lineWidth = R*.04;
+  const s = R*1.2;
   const openShape = (w, h, top, flatTop) => {   // filled mouth: w=half width, h=depth below 0, top=height above 0
-    ctx.beginPath();
-    ctx.moveTo(-w, 0);
-    if (flatTop) ctx.quadraticCurveTo(0, -top, w, 0); else ctx.bezierCurveTo(-w*.6, -top*1.35, w*.6, -top*1.35, w, 0);
-    ctx.bezierCurveTo(w*.95, h*1.25, -w*.95, h*1.25, -w, 0);
-    ctx.closePath();
-    ctx.fillStyle = inside; ctx.fill();
-    ctx.save(); ctx.clip();
+    const P = new Path2D();
+    P.moveTo(-w, 0);
+    if (flatTop) P.quadraticCurveTo(0, -top, w, 0); else P.bezierCurveTo(-w*.6, -top*1.35, w*.6, -top*1.35, w, 0);
+    P.bezierCurveTo(w*.95, h*1.25, -w*.95, h*1.25, -w, 0);
+    P.closePath();
+    ctx.fillStyle = inside; ctx.fill(P);
+    ctx.save(); ctx.clip(P);
     ctx.fillStyle = tongue; ctx.beginPath(); ctx.ellipse(0, h*.95, w*.7, h*.5, 0, 0, TAU); ctx.fill();
     ctx.restore();
-    ctx.stroke();
+    ctx.stroke(P);
   };
   if (vis === 'x'){
     // expression-default mouth
@@ -465,17 +469,17 @@ function drawMouth(ctx, mx, my, vis, expr, R, b, lineCol, ts){
     switch (vis){
       case 'a': openShape(s*.1, s*.17, s*.02, false); break;              // wide open
       case 'i': // wide flat grin with teeth
-        ctx.beginPath(); ctx.moveTo(-s*.13, 0); ctx.quadraticCurveTo(0, -s*.03, s*.13, 0);
-        ctx.quadraticCurveTo(0, s*.07, -s*.13, 0); ctx.closePath();
-        ctx.fillStyle = inside; ctx.fill();
-        ctx.save(); ctx.clip(); ctx.fillStyle = '#fff'; ctx.fillRect(-s*.13, -s*.03, s*.26, s*.025); ctx.restore();
-        ctx.stroke(); break;
+        { const P = new Path2D(); P.moveTo(-s*.13, 0); P.quadraticCurveTo(0, -s*.03, s*.13, 0);
+        P.quadraticCurveTo(0, s*.08, -s*.13, 0); P.closePath();
+        ctx.fillStyle = inside; ctx.fill(P);
+        ctx.save(); ctx.clip(P); ctx.fillStyle = '#fff'; ctx.fillRect(-s*.13, -s*.03, s*.26, s*.03); ctx.restore();
+        ctx.stroke(P); } break;
       case 'u': // small pucker
         ctx.beginPath(); ctx.ellipse(0, s*.02, s*.035, s*.035, 0, 0, TAU); ctx.fillStyle = inside; ctx.fill(); ctx.stroke(); break;
       case 'e': openShape(s*.11, s*.08, s*.02, true); break;
-      case 'o': ctx.beginPath(); ctx.ellipse(0, s*.04, s*.065, s*.09, 0, 0, TAU); ctx.fillStyle = inside; ctx.fill();
-        ctx.save(); ctx.clip(); ctx.fillStyle = tongue; ctx.beginPath(); ctx.ellipse(0, s*.12, s*.05, s*.04, 0, 0, TAU); ctx.fill(); ctx.restore();
-        ctx.stroke(); break;
+      case 'o': { const P = new Path2D(); P.ellipse(0, s*.04, s*.065, s*.09, 0, 0, TAU); ctx.fillStyle = inside; ctx.fill(P);
+        ctx.save(); ctx.clip(P); ctx.fillStyle = tongue; ctx.beginPath(); ctx.ellipse(0, s*.12, s*.05, s*.04, 0, 0, TAU); ctx.fill(); ctx.restore();
+        ctx.stroke(P); } break;
       case 'n': ctx.beginPath(); ctx.moveTo(-s*.07, 0); ctx.quadraticCurveTo(0, s*.035, s*.07, 0); ctx.stroke(); break;
       case 'c': default: openShape(s*.06, s*.05, s*.005, true); break;
     }

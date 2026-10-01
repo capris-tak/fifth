@@ -23,6 +23,12 @@ window.renderFrame = function(t){
     Hoshi.draw(ctx, t, {x:1580,y:520,scale:3.4,bright:1,expr:t>30?'joy':'gentle',mouth:m});
     label('mouth='+m, 960, 1000); return;
   }
+  if (location.hash==='#vis'){
+    'aiueoncx'.split('').forEach((v,i)=>{ const x=130+(i%4)*440+(i>3?220:0)*0, y=i<4?260:760;
+      Hoshi.draw(ctx, t, {x:x+100,y,scale:2.6,bright:i%2?.9:.1,flicker:.5,expr:'gentle',mouth:v,seed:i,blink:false,halo:.3});
+      label(v, x+100, y+200); });
+    return;
+  }
   // row 1: brightness lineup
   const br = [[0,'hurt',1],[0.3,'sad',.6],[0.6,'hope',.2],[1,'joy',0]];
   br.forEach(([b,e,f],i)=>{ const x=200+i*330, y=230;
