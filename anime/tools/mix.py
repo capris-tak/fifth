@@ -18,7 +18,7 @@ for L in lines:
     x=resample_poly(x,SR,sr)
     # gentle voice EQ: high-pass 90 Hz, slight presence
     x=sosfilt(butter(2,90,'hp',fs=SR,output='sos'),x)
-    rms=np.sqrt(np.mean(x[np.abs(x)>0.01]**2)); x*=0.16/rms   # loudness normalize
+    rms=np.sqrt(np.mean(x[np.abs(x)>0.01]**2)); x*=0.13/rms   # loudness normalize
     p=PAN[L['who']]; s=int(starts[L['id']]*SR); e=min(N,s+len(x))
     voice[s:e,0]+=x[:e-s]*np.sqrt(0.5-p/2)*1.41; voice[s:e,1]+=x[:e-s]*np.sqrt(0.5+p/2)*1.41
     duck[max(0,s-int(.15*SR)):min(N,e+int(.3*SR))]=1
@@ -31,7 +31,7 @@ ir2=rng.standard_normal(ir_len)*np.exp(-np.arange(ir_len)/(0.12*SR))
 vrev=np.stack([fftconvolve(voice[:,0],ir)[:N],fftconvolve(voice[:,1],ir2)[:N]],1)
 vrev*=0.12*np.abs(voice).max()/(np.abs(vrev).max()+1e-9)
 music=load('audio/music.wav'); sfx=load('audio/sfx.wav'); amb=load('audio/ambience.wav')
-mix=voice+vrev+music*(1-0.55*duck)[:,None]*0.85+sfx*(1-0.3*duck)[:,None]*0.9+amb*0.7
+mix=voice+vrev+music*(1-0.3*duck)[:,None]*0.85+sfx*(1-0.3*duck)[:,None]*0.9+amb*0.7
 # master: soft-knee limiter
 pk=np.abs(mix).max(); print('pre-peak',pk)
 g=np.ones(N); env=np.abs(mix).max(1)

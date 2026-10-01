@@ -178,7 +178,7 @@ def piano(note, dur, vel, seed=None):
     m = M(note)
     f = F(m)
     T60 = float(np.clip(16 * 2 ** (-(m - 21) / 17), 0.9, 16))
-    L = int(min(dur + 0.4, T60 + 0.3) * SR)
+    L = int(min(dur + 0.6, T60 + 0.3) * SR)
     t = np.arange(L) / SR
     B = 7e-5 * 2 ** ((m - 48) / 14)
     fmax = min(9000.0, 1800 + 5500 * vel)
@@ -212,6 +212,8 @@ def piano(note, dur, vel, seed=None):
     out[:hl] += hn
     rel = t > dur
     out[rel] *= np.exp(-(t[rel] - dur) / 0.09)
+    fl = min(L, int(0.01 * SR))
+    out[L - fl:] *= np.linspace(1, 0, fl)
     out *= vel ** 1.6
     p = np.clip((m - 62) / 45, -0.55, 0.55)
     return pan2(out, p)
@@ -475,12 +477,12 @@ def compose():
     pad(10.6, 12.5, ['A5', 'E6'], 0.018, att=1.4, rel=0.08, fc=8000, swell=(-12, 0), voices=6)
     bass(10.5, 12.5, 'A1', 0.1, rel=0.1)
     gliss(10.6, 12.42, 'A2', 'E7', D_MAJ, 0.25, 0.62, power=0.7)
-    pings(11.0, 12.45, 16, D_PENT, (6, 7), 0.10, 0.28, seed=11)
+    pings(11.0, 12.45, 16, D_PENT, (6, 7), 0.08, 0.2, seed=11)
     B['cymbal'].add(11.3, cymbal_roll(1.2, 0.03, 0.15))
     B['fx'].add(10.8, shimmer_noise(1.7, 0.1, 1.0))
     # stinger (impact 12.5)
-    B['perc'].add(12.5, timpani('D2', 0.55))
-    B['perc'].add(12.5, bassdrum(0.4))
+    B['perc'].add(12.5, timpani('D2', 0.42))
+    B['perc'].add(12.5, bassdrum(0.3))
     pad(12.5, 12.72, ['D3', 'F#3', 'A3', 'D4', 'F#4', 'A4'], 0.05, att=0.012, rel=0.55, fc=3500, voices=6)
     bass(12.5, 12.7, 'D2', 0.10, att=0.01, rel=0.5)
     for i, nm in enumerate(['D7', 'A6', 'F#6', 'D6', 'A5']):
@@ -591,7 +593,7 @@ def compose():
     t = 35.0
     while t < 37.56:
         u = (t - 35.0) / 2.58
-        B['perc'].add(t, timpani('D2', 0.08 + 0.42 * u ** 1.8, decay=1.4, pan=-0.1 + 0.08 * rr.uniform(-1, 1)))
+        B['perc'].add(t, timpani('D2', 0.07 + 0.33 * u ** 1.8, decay=1.4, pan=-0.1 + 0.08 * rr.uniform(-1, 1)))
         t += 0.058 + rr.uniform(-0.008, 0.008)
     B['cymbal'].add(35.6, cymbal_roll(2.0, 0.025, 0.24))
     B['fx'].add(35.0, shimmer_noise(2.6, 0.15, 1.2))
@@ -600,10 +602,10 @@ def compose():
 
     # ================= BURST 37.6 : glorious D major ===========================================
     tb = 37.6
-    pad(tb, tb + 1.3, ['D2', 'A2', 'D3', 'A3', 'D4', 'F#4', 'A4', 'D5', 'F#5', 'A5'], 0.2, att=0.02, rel=1.6,
+    pad(tb, tb + 1.15, ['D2', 'A2', 'D3', 'A3', 'D4', 'F#4', 'A4', 'D5', 'F#5', 'A5'], 0.2, att=0.02, rel=1.3,
         fc=4500, voices=6, swell=(0, -7))
-    line('strings', [(tb, 1.3, 'D6')], 0.15, att=0.02, rel=1.6, voices=6, fc=6000, vib=0.005, swell=(0, -6))
-    choir(tb, tb + 1.4, ['A3', 'D4', 'F#4', 'A4', 'D5', 'F#5'], 0.15, att=0.05, rel=1.4, swell=(0, -6))
+    line('strings', [(tb, 1.15, 'D6')], 0.15, att=0.02, rel=1.3, voices=6, fc=6000, vib=0.005, swell=(0, -6))
+    choir(tb, tb + 1.2, ['A3', 'D4', 'F#4', 'A4', 'D5', 'F#5'], 0.15, att=0.05, rel=1.4, swell=(0, -6))
     for nm in ['D4', 'F#4', 'A4', 'D5']:
         horn(tb, tb + 1.1, nm, 0.13, att=0.04, rel=1.0, swell=(0, -6))
     bass(tb, tb + 1.5, 'D2', 0.16, att=0.02, rel=1.2)
