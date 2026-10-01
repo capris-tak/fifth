@@ -1,0 +1,29 @@
+# ほしのとうだい SFX cue list (seconds). sfx.wav unless marked 'ambience'.
+# ambience.wav: whole film wind bed, -4 dB 17-29 s, fade-in 0-1.5, fade-out 58-60
+# sfx bus ducked -5 dB under dialogue windows; light outdoor reverb on bus.
+  0.500 -  10.000  lamp mechanism idle hum + distant tick (very faint)
+  3.000 -   3.722  ambience: faint wind chime tinkle
+ 10.800 -  12.400  shooting star whoosh L->R with doppler bend + sparkles
+ 12.500 -  14.000  IMPACT: magical thump + crystalline shatter cascade + falling sparkles
+ 12.662 -  14.115  ambience: faint wind chime tinkle
+ 12.900 -  13.300  lighthouse door latch + wooden creak
+ 13.000 -  13.800  Mina: 5 quick footsteps on grass
+ 17.000 -  28.500  Hoshi weak flicker: intermittent crackle/sputter (very quiet)
+ 19.846 -  20.668  ambience: faint wind chime tinkle
+ 28.834 -  29.972  ambience: faint wind chime tinkle
+ 30.800 -  31.800  Mina runs (6 steps on grass) + door
+ 31.900 -  32.600  footsteps up metal stairs (echoey, receding)
+ 32.000 -  32.100  lamp: heavy mechanism clunk
+ 32.150 -  32.900  lamp: gear ratchet (accelerating)
+ 32.550 -  33.500  lamp: rising electric hum 'vwoom' ignition (sustains, fades by 37.4)
+ 33.500 -  35.000  beam sweep: deep airy swoosh R->L
+ 35.000 -  37.600  absorption riser: gliding partials + densifying sparkles
+ 37.600 -  41.800  BURST: bell cluster + sub boom + outward whoosh + 4 s glitter tail
+ 37.839 -  38.782  ambience: faint wind chime tinkle
+ 38.000 -  39.000  happy twinkly sparkle arpeggio
+ 45.376 -  46.502  ambience: faint wind chime tinkle
+ 48.600 -  51.500  Hoshi ascends: rising whoosh + sparkle trail, panning up/away
+ 51.500 -  51.500  star settles: single pure crystal ting (A6)
+ 52.500 -  56.000  constellation stars pop in: 12 soft pentatonic tings (D major)
+ 55.210 -  56.103  ambience: faint wind chime tinkle
+ 56.500 -  59.900  title: soft shimmering chime swell (D major add9)
