@@ -1,0 +1,27 @@
+music.wav cue sheet — 「ほしのとうだい」 original score (48 kHz / 16-bit / stereo / 60.000 s)
+Key D major (B minor colour in S3).  Main motif = A D E F# | E D B A (5-1-2-3 | 2-1-6-5).
+Dialogue windows get an automatic -5 dB dip in 300 Hz-3 kHz on the whole score.
+
+ 0.00-10.50  S1 Opening      music-box states the main motif over soft string pad + contrabass + harp rolls.
+                             D(add9) | Bm7 | Gmaj7 | A7, ~80 BPM, faint glock twinkles (stars).  Fade-in from 0.
+10.50-12.50  S2 Fall         rising harp glissando (A2->E7, accelerating), high string harmonics, glock shimmer,
+                             noise shimmer + suspended-cymbal swell on A pedal (crescendo).
+12.50        STINGER         timpani D + bass drum + short string stab D major + glock splash + soft crash.
+12.60-17.00  Curious         staccato pizzicato tiptoe  G | A | F#m | F#7 (-> Bm), celesta questions at 12.9 / 16.1.
+17.00-28.60  S3 Meeting      B minor, very quiet: Bm(add9) | Gmaj7 | Em9 | A7sus4->A7.  Sparse felt piano,
+                             bass notes on chord changes, melodic sighs only in dialogue gaps (22.46, 24.98);
+                             hopeful rising piano A-C#-E at 28.12 into the major lift.
+28.60-33.50  S4a Determination  D | A/C# | Bm | G | A at 98 BPM: pulsing spiccato eighths begin and grow
+                             (+8 dB), piano arpeggios from 31.05, horn line D-F#-G-A, timpani taps 32.28 / 32.90.
+33.50-37.60  S4b Beam & charge  rising sequence G | A | Bm | Bb | C (bVI-bVII), choir 'aah' enters 33.5,
+                             strings soar B4->C6, horns, timpani roll on D from 35.0, cymbal roll 35.6,
+                             building glock shimmer, harp gliss up 36.95 -> peak.
+37.60        BURST           tutti D major (strings D2-D6, choir, horns, piano, contrabass D1/D2),
+                             timpani + bass drum + crash cymbal, glock cascade, harp gliss down,
+                             celesta motif quote 38.5.  Decays toward 39.0.
+39.00-48.60  S5 Farewell     main theme on soft piano over descending bass D C# B A G F# (warm, quiet).
+48.60-51.00  Rise            Em9 | A7sus4 | A7 ; soaring string line E4->E5 (+octave), harp gliss up, choir halo.
+51.00-56.50  S6 Constellation  main motif on celesta (+music box, strings an octave below):
+                             D | Bm7 | Gmaj7 | G6 -> Gm6 (minor plagal), soft star pings 52.8-55.6.
+56.50        TITLE CADENCE   arrival on D(add9): harp roll, celesta arpeggio upward, low piano D, choir pp.
+57.50-60.00  Ring out        reverb tail; master fade 58.4 -> 60.0 (exact digital silence at 60.000).

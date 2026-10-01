@@ -7,7 +7,7 @@ const TAU = Math.PI*2;
 
 // ---------------------------------------------------------------- palette / sprites (deterministic caches)
 // heat ramp: 0 = white-hot -> gold -> amber -> rose -> soft violet
-const RAMP = ['#ffffff','#fff8e2','#fff0b8','#ffe28a','#ffcf6e','#ffb35a','#ff9a78','#ff8ea6','#e79bdc','#b9a6ff'];
+const RAMP = ['#ffffff','#fff8e2','#fff0b8','#ffe28a','#ffd06a','#ffb84a','#ff9a4a','#ff8a5c','#ff7f7a','#f27a96'];
 const NR = RAMP.length;
 const sprites = {};
 let cid=0; function mkCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;c._id=++cid;return c;}
@@ -29,7 +29,7 @@ function sparkSprite(hex,diag){
   g.globalCompositeOperation='lighter';
   const ray=(len,wid,a)=>{
     const gr=g.createRadialGradient(0,0,0,0,0,len);
-    gr.addColorStop(0,U.rgba('#ffffff',a));gr.addColorStop(.12,U.rgba(hex,a*.9));
+    gr.addColorStop(0,U.rgba('#ffffff',a));gr.addColorStop(.06,U.rgba(hex,a*.95));
     gr.addColorStop(.45,U.rgba(hex,a*.3));gr.addColorStop(1,U.rgba(hex,0));
     g.fillStyle=gr;
     for(let i=0;i<2;i++){g.save();g.rotate(i*Math.PI/2);g.beginPath();
@@ -37,7 +37,7 @@ function sparkSprite(hex,diag){
   };
   ray(S/2,5,1); ray(S/2*.55,10,.5);
   const cg=g.createRadialGradient(0,0,0,0,0,S*.16);
-  cg.addColorStop(0,'rgba(255,255,255,1)');cg.addColorStop(.3,U.rgba(hex,.7));cg.addColorStop(1,U.rgba(hex,0));
+  cg.addColorStop(0,'rgba(255,255,255,1)');cg.addColorStop(.18,U.rgba(hex,.8));cg.addColorStop(1,U.rgba(hex,0));
   g.fillStyle=cg;g.beginPath();g.arc(0,0,S*.16,0,TAU);g.fill();
   return sprites[k]=c;
 }
@@ -67,10 +67,36 @@ function rayTex(seed,n,wmin,wmax){
   o.filter='blur(2.5px)';o.drawImage(raw,0,0);o.filter='none';
   return sprites[k]=out;
 }
-function tinted(src,hex,key){
+// burst god-ray texture: broad amber rays + fine white/gold rays, baked once
+function burstRays(seed){
+  const k='br'+seed; if(sprites[k])return sprites[k];
+  const RA=warmRays(rayTex(seed,48,.006,.035)), RB=tinted(rayTex(seed+13,30,.015,.06),'#ff9a4a');
+  const S=768,c=mkCanvas(S,S),g=c.getContext('2d');g.globalCompositeOperation='lighter';
+  g.globalAlpha=.55;g.drawImage(RB,0,0,S,S);
+  g.globalAlpha=1;const r=S/2*1500/1800;g.drawImage(RA,S/2-r,S/2-r,r*2,r*2);
+  return sprites[k]=c;
+}
+// white-core / gold-edge version of a ray texture
+function warmRays(src){
+  const k='w'+src._id; if(sprites[k])return sprites[k];
+  const S=src.width,c=mkCanvas(S,S),g=c.getContext('2d');
+  g.drawImage(src,0,0);g.globalCompositeOperation='source-in';
+  const gr=g.createRadialGradient(S/2,S/2,0,S/2,S/2,S/2);gr.addColorStop(0,'#ffffff');gr.addColorStop(.25,'#fff0b8');gr.addColorStop(.6,'#ffc860');gr.addColorStop(1,'#ff9a4a');
+  g.fillStyle=gr;g.fillRect(0,0,S,S);
+  return sprites[k]=c;
+}
+function tinted(src,hex){
   const k='t'+src._id+hex; if(sprites[k])return sprites[k];
   const c=mkCanvas(src.width,src.height),g=c.getContext('2d');
   g.drawImage(src,0,0);g.globalCompositeOperation='source-in';g.fillStyle=hex;g.fillRect(0,0,c.width,c.height);
+  return sprites[k]=c;
+}
+// several concentric glows baked into one sprite (exact, since all layers share one alpha envelope)
+// layers: [[radiusRel (0..1), hex, alpha], ...]
+function bakeGlow(key,layers){
+  const k='m'+key; if(sprites[k])return sprites[k];
+  const S=256,c=mkCanvas(S,S),g=c.getContext('2d');g.globalCompositeOperation='lighter';
+  for(const [rr,hex,a] of layers){g.globalAlpha=a;const r=rr*S/2;g.drawImage(glowSprite(hex),S/2-r,S/2-r,r*2,r*2);}
   return sprites[k]=c;
 }
 // draw a texture centred at (x,y), radius R, rotation rot
@@ -97,7 +123,7 @@ const twk=(t,ph,sp)=>.55+.45*Math.sin(t*sp+ph);
 // soft chromatic ring (ellipse when squash<1): rose outside, gold middle, cyan inside
 function chromaRing(ctx,x,y,R,squash,w,a,spread){
   if(a<=.003||R<=0)return; const off=(spread||1)*w*.9;
-  const L=[['#ff6f9f',off,.55],['#ffe7a0',0,1],['#7fe0ff',-off,.5]];
+  const L=[['#ff6a7a',off,.6],['#ffe7a0',0,1],['#6fd8ff',-off,.5]];
   ctx.globalAlpha=1;
   for(const [c,d,m] of L){const r=Math.max(1,R+d);
     ctx.strokeStyle=U.rgba(c,a*m*.22);ctx.lineWidth=w*3;ctx.beginPath();ctx.ellipse(x,y,r,r*squash,0,0,TAU);ctx.stroke();
@@ -106,8 +132,8 @@ function chromaRing(ctx,x,y,R,squash,w,a,spread){
 // tapered-looking motion streak: faint wide + bright thin core
 function streak(ctx,x0,y0,x1,y1,w,hex,a){
   if(a<=.003)return; ctx.globalAlpha=1; ctx.lineCap='round';
-  ctx.strokeStyle=U.rgba(hex,a*.35);ctx.lineWidth=w*2.2;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
-  ctx.strokeStyle=U.rgba('#fffbe6',a*.9);ctx.lineWidth=w*.7;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(x1,y1);ctx.stroke();
+  ctx.strokeStyle=U.rgba(hex,a*.3);ctx.lineWidth=w*1.3;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  ctx.strokeStyle=U.rgba('#fffbe6',a*.8);ctx.lineWidth=w*.45;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(x1,y1);ctx.stroke();
 }
 
 // ---------------------------------------------------------------- shooting star
@@ -125,7 +151,7 @@ FX.shootingStar = function(ctx,t,o){
   const N=40, pts=[];
   for(let i=0;i<=N;i++){const tt=Math.min(t,t1)-tailT*i/N - (live?0:(t-t1)); if(tt<t0)break; pts.push(pos(Math.max(t0,tt)));}
   if(pts.length>1&&fadeAfter>.01){
-    const passes=[[46,'#ff8fb0',.05,1.1],[22,'#ffb347',.13,1.4],[9,'#ffe28a',.35,1.8],[2.6,'#fffbe6',.95,2.4]];
+    const passes=[[46,'#ff9a30',.06,1.1],[22,'#ffc040',.14,1.4],[9,'#ffe28a',.35,1.8],[2.6,'#fffbe6',.95,2.4]];
     for(const [w,col,al,pw] of passes){
       for(let i=0;i<pts.length-1;i++){
         const k=i/(pts.length-1), taper=Math.pow(1-k,pw);
@@ -149,7 +175,7 @@ FX.shootingStar = function(ctx,t,o){
   if(fadeAfter>.01){
     const [hx,hy]=pos(Math.min(t,t1)); const fl=.88+.12*Math.sin(t*53)+.06*Math.sin(t*31);
     const hs=S*U.smooth(U.inv(t0,t0+.25,t))*fadeAfter;
-    glow(ctx,hx,hy,300*hs,'#ff8fb0',.10*fl);
+    glow(ctx,hx,hy,300*hs,'#ffa030',.12*fl);
     glow(ctx,hx,hy,170*hs,'#ffb347',.28*fl);
     glow(ctx,hx,hy,70*hs,'#ffe28a',.6);
     glow(ctx,hx,hy,26*hs,'#ffffff',1);
@@ -168,17 +194,14 @@ FX.impact = function(ctx,t,o){
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
   const fl=Math.exp(-a*8), ag=Math.exp(-a*.8)*U.smooth(U.inv(0,.1,a));
   // flash
-  glow(ctx,x,y-30*S,1000*S*(.7+.3*U.easeOut(U.clamp(a*4))),'#ffcf6e',fl*.55);
-  glow(ctx,x,y-20*S,420*S,'#fff0b8',fl*.8);
-  glow(ctx,x,y-10*S,160*S,'#ffffff',fl);
+  texAt(ctx,bakeGlow('iflash',[[1,'#ff9a30',.65],[.42,'#ffd060',.85],[.16,'#ffffff',1]]),x,y-20*S,1000*S*(.7+.3*U.easeOut(U.clamp(a*4))),0,fl);
   // god-ray splash, upward fan (ground hemisphere)
   const rk=Math.exp(-a*2.2)*U.smooth(U.inv(0,.05,a));
   if(rk>.01){ctx.save();ctx.beginPath();ctx.rect(x-3000,y-3000,6000,3000+6*S);ctx.clip();
-    texAt(ctx,tinted(rayTex(seed+3,40,.01,.05),'#ffd27a','r'+(seed+3)),x,y,(500+500*U.easeOut(U.clamp(a*2)))*S,a*.05,rk*.9);
-    texAt(ctx,rayTex(seed+3,40,.01,.05),x,y,(300+300*U.easeOut(U.clamp(a*2)))*S,a*.05,rk*.6);
+    texAt(ctx,warmRays(rayTex(seed+3,40,.01,.05)),x,y,(500+500*U.easeOut(U.clamp(a*2)))*S,a*.05,rk);
     ctx.restore();}
   // warm afterglow pool
-  ctx.save();ctx.translate(x,gy);ctx.scale(1,.32);glow(ctx,0,0,340*S,'#ffb347',ag*.35);glow(ctx,0,0,140*S,'#fff3c4',ag*.4);ctx.restore();
+  ctx.save();ctx.translate(x,gy);ctx.scale(1,.32);texAt(ctx,bakeGlow('ipool',[[1,'#ff9a30',.5],[.4,'#ffe28a',.55]]),0,0,340*S,0,ag);ctx.restore();
   glow(ctx,x,y-14*S,70*S,'#fff3c4',ag*.5);
   // anamorphic flare
   if(fl>.02){ctx.save();ctx.translate(x,y-12*S);ctx.scale(10,.28);glow(ctx,0,0,100*S,'#ffe7a0',fl*.9);ctx.restore();}
@@ -187,14 +210,14 @@ FX.impact = function(ctx,t,o){
   for(let ri=0;ri<2;ri++){
     const ra=a-ri*.2, dur=1.5; if(ra<0||ra>dur)continue;
     const k=U.easeOut(ra/dur), R=(50+680*k)*S*(ri?0.72:1), f=Math.pow(1-ra/dur,1.6);
-    chromaRing(ctx,x,gy,R,.2,(ri?3:5)*S*(1-k*.5),f,1.4);
+    chromaRing(ctx,x,gy,R,.2,(ri?2.2:3.5)*S*(1-k*.5),f*.75,1.6);
   }
   // airborne shock dome
   if(a<.7){const k=U.easeOut(a/.7), R=(40+460*k)*S, f=Math.pow(1-a/.7,2);
-    ctx.save();ctx.beginPath();ctx.rect(x-3000,y-3000,6000,3000);ctx.clip();chromaRing(ctx,x,y,R,.9,6*S,f*.8,1.2);ctx.restore();}
+    ctx.save();ctx.beginPath();ctx.rect(x-3000,y-3000,6000,3000);ctx.clip();chromaRing(ctx,x,y,R,.9,3.5*S,f*.5,1.6);ctx.restore();}
   // splash particles: arc up & fall, settle on ground and glimmer
   const P=table('imp',150,seed,r=>{const an=-Math.PI*(.05+.9*r()), sp=260+r()*820*(r()<.25?1.6:1);
-    return {vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,k:1.2+r()*1.4,life:1.6+r()*2.6,sz:1.6+r()*4.5,ph:r()*TAU,h:r()*.2,dg:r()<.5,big:r()<.2,tw:6+r()*10};});
+    return {vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,k:1.2+r()*1.4,life:1.6+r()*2.6,sz:1.3+r()*3.6,ph:r()*TAU,h:r()*.2,dg:r()<.5,big:r()<.2,tw:6+r()*10};});
   for(const q of P){
     if(a>q.life)continue; const k=a/q.life;
     let [px,py]=ball(x,y-6*S,q.vx*S,q.vy*S,q.k,1100,a);
@@ -225,11 +248,12 @@ FX.impact = function(ctx,t,o){
 FX.absorb = function(ctx,t,o){
   const t0=o.t0,t1=o.t1; if(t<t0||t>t1+.15)return;
   const S=o.scale||1, R=(o.radius||520)*S, seed=o.seed||21, x=o.x, y=o.y, D=t1-t0;
-  const prog=U.clamp((t-t0)/D), build=U.easeIn(prog)*.7+prog*.3;
-  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+  const prog=U.clamp((t-t0)/D), build=U.easeIn(prog)*.7+prog*.3, out=1-U.clamp((t-t1)/.15);
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round'; ctx.lineJoin='round';
+  if(out<1)ctx.globalAlpha=1;
   // ambient warm gathering haze
-  glow(ctx,x,y,R*1.1,'#ff9a78',.06*build);
-  glow(ctx,x,y,R*.6,'#ffb347',.1*build);
+  texAt(ctx,bakeGlow('ahaze',[[1,'#ff9a30',.12],[.55,'#ffc040',.2]]),x,y,R*1.1,0,build);
+  const SQ=o.squash||.7;
   const N=o.count||170;
   const P=table('abs',N,seed,r=>({off:r()*3,per:1+r()*1,a0:r()*TAU,spin:(1.6+r()*1.6)*(r()<.85?1:-1),rr:.5+r()*.65,sz:1.4+r()*3.6,h:.25+r()*.7,thr:r(),ph:r()*TAU,dg:r()<.5}));
   for(const q of P){
@@ -238,31 +262,29 @@ FX.absorb = function(ctx,t,o){
     if(t-t0<k*per)continue;
     const rot=Math.floor(cyc)*1.7;
     const pr=r=>{const ee=Math.pow(r,2.2); const rad=R*q.rr*(1-ee), an=q.a0+rot+q.spin*Math.pow(r,1.6)*2.4;
-      return [x+Math.cos(an)*rad, y+Math.sin(an)*rad*.8];};
-    const al=U.smooth(U.inv(0,.2,k))*(1-U.smooth(U.inv(.88,1,k)))*(.45+.55*build);
+      return [x+Math.cos(an)*rad, y+Math.sin(an)*rad*SQ];};
+    const al=U.smooth(U.inv(0,.2,k))*(1-U.smooth(U.inv(.88,1,k)))*(.55+.45*build)*out;
     const c=rampHex(q.h*(1-Math.pow(k,1.5)));
     // curved streak: 4 samples behind
-    let prev=pr(Math.max(0,k-.12));
-    for(let j=1;j<=4;j++){const p=pr(Math.max(0,k-.12+.03*j)), f=j/4;
-      ctx.strokeStyle=U.rgba(c,al*.45*f);ctx.lineWidth=q.sz*S*(.4+.6*f);ctx.beginPath();ctx.moveTo(prev[0],prev[1]);ctx.lineTo(p[0],p[1]);ctx.stroke();prev=p;}
-    const [px,py]=prev;
+    const pts=[];for(let j=0;j<=6;j++)pts.push(pr(Math.max(0,k-.14+.14*j/6)));
+    ctx.strokeStyle=U.rgba(c,al*.35);ctx.lineWidth=q.sz*S*.55;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let j=1;j<=6;j++)ctx.lineTo(pts[j][0],pts[j][1]);ctx.stroke();
+    ctx.strokeStyle=U.rgba(c,al*.7);ctx.lineWidth=q.sz*S*.9;ctx.beginPath();ctx.moveTo(pts[4][0],pts[4][1]);ctx.lineTo(pts[5][0],pts[5][1]);ctx.lineTo(pts[6][0],pts[6][1]);ctx.stroke();
+    const [px,py]=pts[6];
     glow(ctx,px,py,q.sz*5*S,c,al*.3); dot(ctx,px,py,q.sz*1.1*S,c,al);
     if(q.sz>4.2)spark(ctx,px,py,q.sz*5*S,c,al*.8,q.dg);
   }
   // contracting rings
   for(let i=0;i<3;i++){
     const per=1.2-.5*prog, k=(((t-t0)/per+i/3)%1);
-    const rr=R*.95*(1-U.easeIn(k)), al=Math.sin(Math.PI*k)*.35*build;
-    chromaRing(ctx,x,y,rr,1,2*S,al,1.5);
+    const rr=R*.95*(1-U.easeIn(k)), al=Math.sin(Math.PI*k)*.35*build*out;
+    chromaRing(ctx,x,y,rr,SQ,2*S,al,1.5);
   }
   // core: growing, pulsing shimmer
   const pulse=.82+.12*Math.sin(t*(8+34*prog))+.06*Math.sin(t*57);
-  glow(ctx,x,y,(140+360*build)*S,'#ffb347',.22*build*pulse);
-  glow(ctx,x,y,(60+170*build)*S,'#ffe28a',.45*build*pulse);
-  glow(ctx,x,y,(18+55*build)*S,'#ffffff',.85*build);
+  texAt(ctx,bakeGlow('acore',[[1,'#ff9a30',.4],[.42,'#ffd060',.7],[.12,'#ffffff',1]]),x,y,(150+380*build)*S,0,build*pulse*(.4+.6*out));
   // rays leaking out near the end
   if(prog>.45){const rk=U.smooth(U.inv(.45,1,prog));
-    texAt(ctx,tinted(rayTex(seed+5,26,.008,.03),'#ffd27a','r'+(seed+5)),x,y,R*(.5+.7*rk),t*.25,.75*rk*pulse);
+    texAt(ctx,warmRays(rayTex(seed+5,26,.008,.03)),x,y,R*(.5+.7*rk),t*.25,.75*rk*pulse);
     sparkRot(ctx,x,y,(80+220*rk)*S*pulse,'#fff0b8',.9*rk,Math.PI/4*Math.sin(t*.7));}
   ctx.restore();
 };
@@ -275,20 +297,12 @@ FX.burst = function(ctx,t,o){
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
   const fl=Math.exp(-a*5.5), ag=Math.exp(-a*.5)*U.smooth(U.inv(0,.08,a));
   // --- flash + afterglow (warm, layered)
-  glow(ctx,x,y,1600*S,'#ffb347',fl*.45);
-  glow(ctx,x,y,800*S,'#fff0b8',fl*.7);
-  glow(ctx,x,y,260*S,'#ffffff',fl);
-  glow(ctx,x,y,900*S,'#ff8fb0',ag*.08);
-  glow(ctx,x,y,520*S,'#ffb347',ag*.18);
-  glow(ctx,x,y,240*S,'#ffe28a',ag*.3);
-  glow(ctx,x,y,90*S,'#fffbe6',ag*.45);
+  if(fl>.03)texAt(ctx,bakeGlow('bflash',[[1,'#ff9a30',.6],[.55,'#ffd060',.8],[.17,'#ffffff',1]]),x,y,1500*S*(.75+.25*U.easeOut(U.clamp(a*5))),0,fl);
+  texAt(ctx,bakeGlow('bafter',[[1,'#ffb020',.2],[.55,'#ffd040',.32],[.25,'#ffe890',.5],[.09,'#fffbe6',.7]]),x,y,700*S,0,ag);
   // --- god rays: blurred ray textures, slow counter-rotation, grow fast & fade
   const rg=U.easeOut(U.clamp(a/.45)), rf=Math.pow(1-U.clamp(a/3.6),1.7)*U.smooth(U.inv(0,.04,a));
   if(rf>.01){
-    const RA=rayTex(seed,48,.006,.035), RB=rayTex(seed+13,30,.015,.06);
-    texAt(ctx,tinted(RB,'#ff9a78','b'+seed),x,y,1900*S*(.4+.6*rg),-a*.06,rf*.55);
-    texAt(ctx,tinted(RA,'#ffd27a','a'+seed),x,y,1500*S*(.35+.65*rg),a*.08,rf*.95);
-    texAt(ctx,RA,x,y,900*S*(.35+.65*rg),a*.08,rf*.7);
+    texAt(ctx,burstRays(seed),x,y,1800*S*(.38+.62*rg),a*.06,rf);
   }
   // anamorphic flare
   if(fl>.02){ctx.save();ctx.translate(x,y);ctx.scale(12,.22);glow(ctx,0,0,120*S,'#ffe7a0',fl);ctx.restore();}
@@ -297,8 +311,6 @@ FX.burst = function(ctx,t,o){
     const ra=a-ri*.2, dur=1.5+ri*.5; if(ra<0||ra>dur)continue;
     const k=U.easeOut(ra/dur), R=(40+(1300-ri*330)*k)*S, f=Math.pow(1-ra/dur,1.5);
     chromaRing(ctx,x,y,R,1,(ri?3.5:7)*S*(1-k*.5),f*(ri?.7:1),1.6);
-    if(ri===0){const gr=ctx.createRadialGradient(x,y,R*.7,x,y,R);gr.addColorStop(0,'rgba(255,240,190,0)');gr.addColorStop(1,U.rgba('#ffe7a0',.08*f));
-      ctx.globalAlpha=1;ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,R,0,TAU);ctx.fill();}
   }
   // --- hero glint
   sparkRot(ctx,x,y,(760*U.easeOut(U.clamp(a*3))*fl+200*ag)*S,'#fff0b8',fl+.55*ag,.08*Math.sin(a*1.3));
@@ -311,7 +323,7 @@ FX.burst = function(ctx,t,o){
     if(a>q.life)continue; const k=a/q.life;
     const [px,py]=ball(x,y,q.vx*S,q.vy*S,q.k,90,a);
     const al=Math.pow(1-k,1.1)*(k>.25?.35+.65*twk(t,q.ph,q.tw):1);
-    const c=rampHex(q.h+k*.95), sz=q.sz*S*(1-k*.35);
+    const c=rampHex(q.h+k*.8), sz=q.sz*S*(1-k*.35);
     if(a<.55){const [qx,qy]=ball(x,y,q.vx*S,q.vy*S,q.k,90,Math.max(0,a-.05));streak(ctx,qx,qy,px,py,sz,c,al*(1-a/.55));}
     glow(ctx,px,py,sz*5,c,al*.26); dot(ctx,px,py,sz*1.1,c,al);
     if(q.big)spark(ctx,px,py,sz*7,c,al,q.dg);
@@ -430,21 +442,23 @@ FX.bloom = function(ctx,strength,o){
   if(!(strength>0))return;
   const cv=ctx.canvas, W=cv.width, H=cv.height;
   const w1=W>>2,h1=H>>2,w2=W>>3,h2=H>>3,w3=W>>4,h3=H>>4;
-  const A=U.buf('fxBloomA',w1,h1),B=U.buf('fxBloomB',w2,h2),C=U.buf('fxBloomC',w3,h3),Bb=U.buf('fxBloomBb',w2,h2);
-  const ga=A.getContext('2d'),gb=B.getContext('2d'),gc=C.getContext('2d'),gbb=Bb.getContext('2d');
+  const A=U.buf('fxBloomA',w1,h1),B=U.buf('fxBloomB',w2,h2),C=U.buf('fxBloomC',w3,h3),M=U.buf('fxBloomM',w1,h1);
+  const ga=A.getContext('2d'),gb=B.getContext('2d'),gc=C.getContext('2d'),gm=M.getContext('2d');
   const th=(o&&o.threshold!==undefined)?o.threshold:.42;
   // brightness(b) then contrast(c) == (v - th)/(1 - th): a soft threshold
   const bb=1/(1+th), cc=(1+th)/(1-th);
-  ga.globalCompositeOperation='copy';ga.filter=`brightness(${bb.toFixed(4)}) contrast(${cc.toFixed(4)}) saturate(1.15)`;
+  ga.globalCompositeOperation='copy';ga.globalAlpha=1;ga.filter=`brightness(${bb.toFixed(4)}) contrast(${cc.toFixed(4)}) saturate(1.15)`;
   ga.drawImage(cv,0,0,w1,h1); ga.filter='none';
   gb.globalCompositeOperation='copy';gb.filter='blur(2px)';gb.drawImage(A,0,0,w2,h2);gb.filter='none';
   gc.globalCompositeOperation='copy';gc.filter='blur(3px)';gc.drawImage(B,0,0,w3,h3);gc.filter='none';
-  gbb.globalCompositeOperation='copy';gbb.filter='blur(4px)';gbb.drawImage(B,0,0);gbb.filter='none';
+  // mix the three scales into one quarter-res buffer, then ONE full-screen additive pass
+  gm.globalCompositeOperation='copy';gm.globalAlpha=1;gm.filter='blur(1.5px)';gm.drawImage(A,0,0);gm.filter='none';
+  gm.globalCompositeOperation='lighter';gm.imageSmoothingEnabled=true;
+  gm.globalAlpha=Math.min(1,.5/.35);gm.filter='blur(3px)';gm.drawImage(B,0,0,w1,h1);gm.filter='none';
+  gm.globalAlpha=1;gm.drawImage(C,0,0,w1,h1);gm.drawImage(C,0,0,w1,h1);
   ctx.save();
-  ctx.globalCompositeOperation='lighter'; ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-  ctx.globalAlpha=Math.min(1,.55*strength); ctx.drawImage(Bb,0,0,W,H);
-  ctx.globalAlpha=Math.min(1,.7*strength); ctx.drawImage(C,0,0,W,H);
-  ctx.globalAlpha=Math.min(1,.35*strength); ctx.drawImage(A,0,0,W,H);
+  ctx.globalCompositeOperation='lighter'; ctx.imageSmoothingEnabled=true;
+  ctx.globalAlpha=Math.min(1,.4*strength); ctx.drawImage(M,0,0,W,H);
   ctx.restore();
 };
 

@@ -1,0 +1,80 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Mina test</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script src="../src/util.js"></script>
+<script src="../src/timeline.js"></script>
+<script src="../src/mina.js"></script>
+<script>
+// modes: (default) lineup of poses + expressions + timeline-driven talking Mina
+//        ?mode=face  close-ups of expressions and visemes
+//        ?mode=perf  prints per-draw cost to console
+const ctx = document.getElementById('c').getContext('2d');
+const mode = new URLSearchParams(location.search).get('mode') || 'lineup';
+function bg(){
+  ctx.setTransform(1,0,0,1,0,0);
+  const g = ctx.createLinearGradient(0,0,0,1080);
+  g.addColorStop(0,'#0b0f30'); g.addColorStop(.6,'#22205a'); g.addColorStop(1,'#3d2e6e');
+  ctx.fillStyle = g; ctx.fillRect(0,0,1920,1080);
+}
+function label(txt, x, y){ ctx.fillStyle='rgba(220,220,255,.8)'; ctx.font='16px sans-serif'; ctx.textAlign='center'; ctx.fillText(txt, x, y); }
+window.renderFrame = function(t){
+  bg();
+  if (mode === 'face'){
+    const ex = Mina.EXPRS;
+    ex.forEach((e,i)=>{ const x = 150 + i*270, y = 290 + 224*2.4;
+      ctx.save(); ctx.beginPath(); ctx.rect(x-135,0,270,540); ctx.clip();
+      Mina.draw(ctx, t, {x, y, scale:2.4, pose:'stand', expr:e, blink:false}); ctx.restore(); label(e, x, 40); });
+    const vis = ['a','i','u','e','o','n','c','x'];
+    // second row: visemes at smaller scale
+    ctx.fillStyle='#1a1840'; ctx.fillRect(0,540,1920,540);
+    vis.forEach((v,i)=>{ const x = 130 + i*237, y = 820 + 224*2.3;
+      ctx.save(); ctx.beginPath(); ctx.rect(x-118,545,236,535); ctx.clip();
+      Mina.draw(ctx, t, {x, y, scale:2.3, pose:'stand', expr:'neutral', mouth:v, blink:false, lookX:.1}); ctx.restore(); label(v, x, 580); });
+    return;
+  }
+  if (mode === 'talk'){
+    // big Mina driven by the real timeline mouth + run / wave cycle strips
+    const m = TL.mouth('mina', t);
+    const st = t < 20 ? {pose:'surprised', expr:'surprised'} : t < 27 ? {pose:'crouch', expr:'worried', facing:-1} :
+      t < 35 ? {pose:'point', expr:'determined'} : {pose:'clasp', expr:'wistful', lookY:-.5};
+    Mina.draw(ctx, t, Object.assign({x:420, y:1050, scale:3.2, mouth:m, rim:{x:900,y:300,color:'#ffd27a',strength:.7}}, st));
+    label('t='+t.toFixed(2)+'  mouth='+m+'  '+st.pose+'/'+st.expr, 420, 40);
+    for (let i = 0; i < 6; i++){ const x = 900 + i*170;
+      Mina.draw(ctx, i/6/1.6, {x, y:420, scale:1.05, pose:'run', expr:'determined', mouth:'x'});
+      Mina.draw(ctx, i/6/1.7, {x, y:900, scale:1.05, pose:'wave', expr:'happy', mouth:i%2?'a':'x'});
+    }
+    label('run cycle (6 phases)', 1330, 460); label('wave cycle (6 phases)', 1330, 940);
+    return;
+  }
+  if (mode === 'blend'){
+    const pairs = [['stand','wave'],['run','stand'],['stand','crouch'],['clasp','lookup']];
+    pairs.forEach((pr,r)=>{ for (let i = 0; i < 6; i++){ const x = 140 + i*200 + (r%2)*0, y = 250 + r*265;
+      const xx = r < 2 ? x : x; 
+      Mina.draw(ctx, t, {x:xx, y, scale:.8, pose:pr[0], pose2:pr[1], mix:i/5, expr:'happy', facing: r===2?-1:1}); }
+      label(pr[0]+' -> '+pr[1], 1500, 200 + r*265); });
+    return;
+  }
+  const poses = Mina.POSES;
+  poses.forEach((p,i)=>{ const x = 110 + i*212, y = 430;
+    Mina.draw(ctx, t, {x, y, scale:1.15, pose:p, poseT:(t*0.8)%1, expr:p==='surprised'?'surprised':p==='point'?'determined':p==='wave'?'joy':p==='clasp'?'wistful':p==='crouch'?'worried':'neutral',
+      facing: i===3 ? -1 : 1, rim: p==='reach'?{x:x+200,y:y-150,color:'#ffd27a',strength:.9}:null});
+    label(p, x, y + 30);
+  });
+  Mina.EXPRS.forEach((e,i)=>{ const x = 110 + i*200, y = 1010;
+    Mina.draw(ctx, t, {x, y, scale:1.15, pose:'stand', expr:e, facing:i%2?-1:1}); label(e, x, y + 28); });
+  // timeline-driven talking Mina (m1 13.4-16.08, m2 22.9-24.95)
+  const tt = t;
+  const x = 1680, y = 1010;
+  const m = TL.mouth('mina', tt);
+  const talk = tt < 20 ? {pose:'surprised', expr:'surprised'} : {pose:'clasp', expr:'worried'};
+  Mina.draw(ctx, tt, Object.assign({x, y, scale:1.65, mouth:m, rim:{x:x-300,y:y-200,color:'#ffe27a',strength:.6}}, talk));
+  label('t='+tt.toFixed(2)+' mouth='+m, x, y + 28);
+  if (mode === 'perf'){
+    const N = 200, t0 = performance.now();
+    for (let i = 0; i < N; i++) Mina.draw(ctx, t + i/30, {x:960, y:600, pose:'run', expr:'happy', mouth:'a', rim:{x:0,y:0,strength:1}});
+    console.warn('per draw ms', ((performance.now()-t0)/N).toFixed(3));
+  }
+};
+window.READY = true;
+</script></body></html>
