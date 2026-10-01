@@ -40,8 +40,8 @@ window.renderFrame=function(t){
   FX.title(ctx,t,{t0:15});mark('title');
   FX.credits(ctx,t,{t0:16});mark('credits');
   if(!window.NOPOST)FX.bloom(ctx,1);mark('bloom');
-  FX.vignette(ctx,.8);mark('vignette');
-  FX.grain(ctx,t,.06);mark('grain');
+  if(window.SEPARATE){FX.vignette(ctx,.8);mark("vignette");FX.grain(ctx,t,.06);}else FX.vignetteGrain(ctx,t,.8,.06);mark("vignette");
+
   FX.fade(ctx,1-U.clamp(t/.4));mark('fade');
   window.TIMES[t]=T;
 };

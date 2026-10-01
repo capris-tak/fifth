@@ -12,8 +12,8 @@ const path = require('path'); const { spawn } = require('child_process');
   await p.waitForFunction(() => window.READY === true);
   const cv = p.locator('canvas').first();
   for (let f = +s; f < +e; f++) {
-    await p.evaluate(t => window.renderFrame(t), f / 30);
-    const buf = await cv.screenshot({ type: 'png' });
+    const url = await p.evaluate(t => { window.renderFrame(t); return document.getElementById('c').toDataURL('image/png'); }, f / 30);
+    const buf = Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');
     if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
     if (f % 60 === 0) console.log(out, 'frame', f);
   }

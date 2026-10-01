@@ -369,7 +369,7 @@ def shimmer_noise(dur, a0, a1, seed=None):
     env = a0 + (a1 - a0) * (t / dur) ** 2
     env *= np.clip((dur - t) / 0.05, 0, 1)
     w = lambda fr: np.exp(-0.5 * (np.log(np.maximum(fr, 1) / 8000) / 0.35) ** 2)
-    return np.vstack([shaped_noise(L, w, r), shaped_noise(L, w, r)]) * env * 0.05
+    return np.vstack([shaped_noise(L, w, r), shaped_noise(L, w, r)]) * env * 0.022
 
 
 # ----------------------------------------------------------------------------- score
@@ -400,7 +400,7 @@ def compose():
     def bass(t0, t1, nm, amp=0.10, **kw):
         kw.setdefault('att', 0.6)
         kw.setdefault('rel', 1.0)
-        B['bass'].add(t0, bowed(F(nm), t1 - t0, amp, voices=2, detune=3, fc=330, tilt=1.1,
+        B['bass'].add(t0, bowed(F(nm), t1 - t0, amp * 0.75, voices=2, detune=3, fc=330, tilt=1.1,
                                 vib=0.0012, spread=0.15, **kw))
 
     def choir(t0, t1, notes, amp, **kw):
@@ -449,18 +449,18 @@ def compose():
             cel(t0 + (t1 - t0) * u, int(r.choice(cands)), v0 + (v1 - v0) * u, kind, pan=r.uniform(-0.6, 0.6))
 
     # ================= S1 OPENING 0–10.5 : music box over soft pad (D | Bm7 | Gmaj7 | A7) =====
-    pad(0.0, 4.6, ['D3', 'A3', 'E4', 'F#4'], 0.045, att=2.8, rel=1.4)
-    pad(4.5, 7.6, ['B2', 'F#3', 'A3', 'D4'], 0.045, att=1.2, rel=1.4)
-    pad(7.5, 9.1, ['G2', 'D3', 'F#3', 'B3'], 0.045, att=1.0, rel=1.2)
-    pad(9.0, 10.7, ['A2', 'E3', 'G3', 'C#4'], 0.05, att=1.0, rel=0.9, fc=1100)
-    bass(1.5, 4.6, 'D2', 0.09, att=1.2)
-    bass(4.5, 7.6, 'B1', 0.09)
-    bass(7.5, 9.1, 'G1', 0.09)
-    bass(9.0, 10.8, 'A1', 0.09)
+    pad(0.0, 4.6, ['D3', 'A3', 'E4', 'F#4'], 0.038, att=2.8, rel=1.4)
+    pad(4.5, 7.6, ['B2', 'F#3', 'A3', 'D4'], 0.038, att=1.2, rel=1.4)
+    pad(7.5, 9.1, ['G2', 'D3', 'F#3', 'B3'], 0.038, att=1.0, rel=1.2)
+    pad(9.0, 10.7, ['A2', 'E3', 'G3', 'C#4'], 0.042, att=1.0, rel=0.9, fc=1100)
+    bass(1.5, 4.6, 'D2', 0.065, att=1.2)
+    bass(4.5, 7.6, 'B1', 0.065)
+    bass(7.5, 9.1, 'G1', 0.065)
+    bass(9.0, 10.8, 'A1', 0.07)
     mb = [(0.75, 'A5'), (1.5, 'D6'), (2.25, 'E6'), (3.0, 'F#6'), (4.5, 'E6'), (5.25, 'D6'), (6.0, 'B5'),
           (7.125, 'A5'), (7.5, 'B5'), (8.25, 'D6'), (9.0, 'A5'), (9.375, 'C#6'), (9.78, 'E6')]
     for i, (t, nm) in enumerate(mb):
-        cel(H(t + (0.04 if i in (3, 7, 12) else 0)), nm, 0.42 if i else 0.32, 'musicbox', pan=0.15)
+        cel(H(t + (0.04 if i in (3, 7, 12) else 0)), nm, 0.34 if i else 0.26, 'musicbox', pan=0.15)
     for t, nm in [(1.5, 'D4'), (1.53, 'A4'), (4.5, 'B3'), (4.53, 'F#4'), (7.5, 'G3'), (7.53, 'D4'), (9.0, 'A3'), (9.03, 'E4')]:
         cel(H(t), nm, 0.20, 'musicbox', pan=-0.2)
     for t, nm in [(0.25, 'D7'), (2.6, 'A7'), (5.6, 'F#7'), (8.6, 'E7')]:
@@ -474,18 +474,18 @@ def compose():
     pad(10.5, 12.5, ['A2', 'E3', 'A3', 'B3', 'E4'], 0.055, att=1.5, rel=0.08, fc=1700, swell=(-9, 0))
     pad(10.6, 12.5, ['A5', 'E6'], 0.018, att=1.4, rel=0.08, fc=8000, swell=(-12, 0), voices=6)
     bass(10.5, 12.5, 'A1', 0.1, rel=0.1)
-    gliss(10.6, 12.42, 'A2', 'E7', D_MAJ, 0.30, 0.80, power=0.7)
+    gliss(10.6, 12.42, 'A2', 'E7', D_MAJ, 0.25, 0.62, power=0.7)
     pings(11.0, 12.45, 16, D_PENT, (6, 7), 0.10, 0.28, seed=11)
-    B['cymbal'].add(11.3, cymbal_roll(1.2, 0.04, 0.3))
+    B['cymbal'].add(11.3, cymbal_roll(1.2, 0.03, 0.15))
     B['fx'].add(10.8, shimmer_noise(1.7, 0.1, 1.0))
     # stinger (impact 12.5)
-    B['perc'].add(12.5, timpani('D2', 0.85))
-    B['perc'].add(12.5, bassdrum(0.55))
-    pad(12.5, 12.72, ['D3', 'F#3', 'A3', 'D4', 'F#4', 'A4'], 0.085, att=0.012, rel=0.55, fc=3500, voices=6)
-    bass(12.5, 12.7, 'D2', 0.14, att=0.01, rel=0.5)
+    B['perc'].add(12.5, timpani('D2', 0.55))
+    B['perc'].add(12.5, bassdrum(0.4))
+    pad(12.5, 12.72, ['D3', 'F#3', 'A3', 'D4', 'F#4', 'A4'], 0.05, att=0.012, rel=0.55, fc=3500, voices=6)
+    bass(12.5, 12.7, 'D2', 0.10, att=0.01, rel=0.5)
     for i, nm in enumerate(['D7', 'A6', 'F#6', 'D6', 'A5']):
-        cel(12.5 + i * 0.03, nm, 0.45 - 0.05 * i, 'glock', pan=0.4 - 0.2 * i)
-    B['cymbal'].add(12.5, cymbal_crash(0.35, T60=3.0))
+        cel(12.5 + i * 0.03, nm, 0.2 - 0.025 * i, 'glock', pan=0.4 - 0.2 * i)
+    B['cymbal'].add(12.5, cymbal_crash(0.22, T60=3.0))
 
     # ----- curious staccato 12.6–17.0 : pizzicato tiptoe G | A | F#m | F#7  -> Bm
     e = 0.367
@@ -493,9 +493,9 @@ def compose():
     for k, nm in enumerate(pz):
         t = 12.75 + k * e
         acc = 1.0 if k % 3 == 0 else 0.75
-        B['strings'].add(H(t, 0.008), pizz(nm, 0.42 * acc))
+        B['strings'].add(H(t, 0.008), pizz(nm, 0.3 * acc))
         if k % 3 == 2:   # little upper answer on the off-beat
-            B['strings'].add(H(t + e * 0.5, 0.006), pizz(M(nm) + 12, 0.22, pan=0.25))
+            B['strings'].add(H(t + e * 0.5, 0.006), pizz(M(nm) + 12, 0.16, pan=0.25))
     pad(12.8, 13.95, ['G3', 'B3', 'D4'], 0.022, att=0.4, rel=0.5, fc=800)
     pad(13.85, 15.05, ['A3', 'C#4', 'E4'], 0.022, att=0.4, rel=0.5, fc=800)
     pad(14.95, 16.1, ['F#3', 'A3', 'C#4'], 0.022, att=0.4, rel=0.5, fc=800)
@@ -503,7 +503,7 @@ def compose():
     for t, nm in [(12.92, 'F#6'), (13.07, 'A6'), (13.22, 'E7')]:
         cel(t, nm, 0.26)
     for t, nm in [(16.12, 'A#5'), (16.32, 'C#6'), (16.52, 'E6'), (16.72, 'F#6')]:
-        cel(t, nm, 0.26)
+        cel(t, nm, 0.18)
 
     # ================= S3 MEETING 17–28.6 : B minor, sparse felt piano, very quiet ================
     pad(17.0, 20.0, ['B2', 'F#3', 'C#4', 'D4'], 0.036, att=1.4, rel=1.4, fc=700)
@@ -572,7 +572,7 @@ def compose():
     HN = ['G4', 'A4', 'B4', 'Bb4', 'C5']
     for k in range(5):
         t0, t1 = Ts[k], Ts[k + 1]
-        g = 10 ** (k * 1.6 / 20)
+        g = 10 ** (k * 1.2 / 20) * 0.9
         last = k == 4
         pad(t0, t1 + 0.04, V[k], 0.05 * g, att=0.22, rel=0.06 if last else 0.3, fc=1400 + 550 * k, voices=6,
             swell=(-2, 1.5))
@@ -591,21 +591,21 @@ def compose():
     t = 35.0
     while t < 37.56:
         u = (t - 35.0) / 2.58
-        B['perc'].add(t, timpani('D2', 0.10 + 0.75 * u ** 1.8, decay=1.4, pan=-0.1 + 0.08 * rr.uniform(-1, 1)))
+        B['perc'].add(t, timpani('D2', 0.08 + 0.42 * u ** 1.8, decay=1.4, pan=-0.1 + 0.08 * rr.uniform(-1, 1)))
         t += 0.058 + rr.uniform(-0.008, 0.008)
-    B['cymbal'].add(35.6, cymbal_roll(2.0, 0.03, 0.42))
+    B['cymbal'].add(35.6, cymbal_roll(2.0, 0.025, 0.24))
     B['fx'].add(35.0, shimmer_noise(2.6, 0.15, 1.2))
-    gliss(36.95, 37.56, 'C3', 'C7', {0, 2, 4, 6, 7, 9, 11}, 0.35, 0.85, power=0.8)
-    pings(35.0, 37.55, 34, {2, 4, 6, 9, 11}, (6, 7), 0.12, 0.32, density_pow=0.6, seed=7)
+    gliss(36.95, 37.56, 'C3', 'C7', {0, 2, 4, 6, 7, 9, 11}, 0.22, 0.5, power=0.8)
+    pings(35.0, 37.55, 34, {2, 4, 6, 9, 11}, (6, 7), 0.06, 0.17, density_pow=0.6, seed=7)
 
     # ================= BURST 37.6 : glorious D major ===========================================
     tb = 37.6
-    pad(tb, tb + 1.3, ['D2', 'A2', 'D3', 'A3', 'D4', 'F#4', 'A4', 'D5', 'F#5', 'A5'], 0.07, att=0.02, rel=1.6,
+    pad(tb, tb + 1.3, ['D2', 'A2', 'D3', 'A3', 'D4', 'F#4', 'A4', 'D5', 'F#5', 'A5'], 0.2, att=0.02, rel=1.6,
         fc=4500, voices=6, swell=(0, -7))
-    line('strings', [(tb, 1.3, 'D6')], 0.07, att=0.02, rel=1.6, voices=6, fc=6000, vib=0.005, swell=(0, -6))
-    choir(tb, tb + 1.4, ['A3', 'D4', 'F#4', 'A4', 'D5', 'F#5'], 0.06, att=0.05, rel=1.4, swell=(0, -6))
+    line('strings', [(tb, 1.3, 'D6')], 0.15, att=0.02, rel=1.6, voices=6, fc=6000, vib=0.005, swell=(0, -6))
+    choir(tb, tb + 1.4, ['A3', 'D4', 'F#4', 'A4', 'D5', 'F#5'], 0.15, att=0.05, rel=1.4, swell=(0, -6))
     for nm in ['D4', 'F#4', 'A4', 'D5']:
-        horn(tb, tb + 1.1, nm, 0.065, att=0.04, rel=1.0, swell=(0, -6))
+        horn(tb, tb + 1.1, nm, 0.13, att=0.04, rel=1.0, swell=(0, -6))
     bass(tb, tb + 1.5, 'D2', 0.16, att=0.02, rel=1.2)
     bass(tb, tb + 1.5, 'D1', 0.10, att=0.02, rel=1.2)
     B['perc'].add(tb, timpani('D2', 1.0, decay=3.2))
@@ -613,10 +613,10 @@ def compose():
     B['perc'].add(tb, bassdrum(1.0))
     B['cymbal'].add(tb, cymbal_crash(1.0, T60=5.0))
     for nm in ['D1', 'D2', 'A2', 'D5', 'F#5', 'A5', 'D6']:
-        pno(tb, nm, 2.2, 0.72)
+        pno(tb, nm, 2.2, 0.36)
     casc = scale_notes('A4', 'D7', D_PENT)[::-1]
     for i, m_ in enumerate(casc):
-        cel(tb + i * 0.04, m_, 0.45 - 0.2 * i / len(casc), 'glock', pan=0.6 - 1.2 * i / len(casc))
+        cel(tb + i * 0.04, m_, 0.26 - 0.12 * i / len(casc), 'glock', pan=0.6 - 1.2 * i / len(casc))
     gliss(tb + 0.03, tb + 0.9, 'D3', 'D7', D_MAJ, 0.6, 0.35, power=0.75, down=True)
     for t, nm in [(38.5, 'A6'), (38.62, 'D7'), (38.74, 'E7'), (38.86, 'F#7')]:
         cel(t, nm, 0.28)
@@ -673,7 +673,7 @@ def compose():
     TH = [(51.0, 'A5', 0.7), (51.7, 'D6', 0.7), (52.4, 'F#6', 1.4), (53.8, 'E6', 0.7), (54.5, 'D6', 0.35),
           (54.85, 'B5', 0.35), (55.2, 'D6', 0.65), (55.85, 'E6', 0.65), (56.5, 'F#6', 2.6)]
     for t, nm, d in TH:
-        cel(H(t + 0.015), nm, 0.40, 'celesta', pan=0.2)
+        cel(H(t + 0.015), nm, 0.33, 'celesta', pan=0.2)
         cel(H(t + 0.015), nm, 0.14, 'musicbox', pan=0.3)
     line('strings', [(t, d + 0.05, M(nm) - 12) for t, nm, d in TH], 0.022, att=0.15, rel=0.5, voices=6,
          fc=1800, vib=0.004)
@@ -775,7 +775,7 @@ def dialogue_dip(x, depth=0.45):
     return out
 
 
-def compress(x, thr_db=-18.0, ratio=1.8, tau=0.06, gtau=0.08):
+def compress(x, thr_db=-15.0, ratio=1.8, tau=0.06, gtau=0.08):
     p = (x[0] ** 2 + x[1] ** 2) / 2
     al = np.exp(-1 / (tau * SR))
     env = signal.lfilter([1 - al], [1, -al], p)
@@ -805,7 +805,7 @@ def master(B):
     sends = {'strings': 0.38, 'bass': 0.12, 'choir': 0.55, 'horn': 0.35, 'piano': 0.32, 'celesta': 0.55,
              'harp': 0.38, 'perc': 0.25, 'cymbal': 0.28, 'fx': 0.5}
     gains = {'strings': 1.0, 'bass': 1.0, 'choir': 1.0, 'horn': 1.0, 'piano': 1.0, 'celesta': 0.9,
-             'harp': 0.8, 'perc': 1.0, 'cymbal': 1.0, 'fx': 1.0}
+             'harp': 0.30, 'perc': 1.0, 'cymbal': 1.0, 'fx': 1.0}
     B['strings'].x = chorus(B['strings'].x)
     B['choir'].x = chorus(B['choir'].x, 0.25)
     dry = np.zeros((2, N))
@@ -820,6 +820,8 @@ def master(B):
     mix = dry + wet * 0.9
     mix = signal.sosfiltfilt(signal.butter(2, 30, 'high', fs=SR, output='sos'), mix, axis=1)
     mix = dialogue_dip(mix)
+    lp = signal.sosfiltfilt(signal.butter(1, 160, 'low', fs=SR, output='sos'), mix, axis=1)
+    mix = mix - 0.37 * lp          # gentle low shelf (-4 dB) to keep the low end from getting muddy
     mix /= np.max(np.abs(mix))
     mix, gr = compress(mix)
     mix *= 10 ** (1.0 / 20) / np.max(np.abs(mix))      # +1 dBFS pre-limiter -> limiter only kisses the burst

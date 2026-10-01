@@ -123,7 +123,7 @@ const twk=(t,ph,sp)=>.55+.45*Math.sin(t*sp+ph);
 // soft chromatic ring (ellipse when squash<1): rose outside, gold middle, cyan inside
 function chromaRing(ctx,x,y,R,squash,w,a,spread){
   if(a<=.003||R<=0)return; const off=(spread||1)*w*.9;
-  const L=[['#ff6a7a',off,.6],['#ffe7a0',0,1],['#6fd8ff',-off,.5]];
+  const L=[['#ff7a5a',off,.6],['#ffe7a0',0,1],['#6fd8ff',-off,.45]];
   ctx.globalAlpha=1;
   for(const [c,d,m] of L){const r=Math.max(1,R+d);
     ctx.strokeStyle=U.rgba(c,a*m*.22);ctx.lineWidth=w*3;ctx.beginPath();ctx.ellipse(x,y,r,r*squash,0,0,TAU);ctx.stroke();
@@ -194,7 +194,7 @@ FX.impact = function(ctx,t,o){
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
   const fl=Math.exp(-a*8), ag=Math.exp(-a*.8)*U.smooth(U.inv(0,.1,a));
   // flash
-  texAt(ctx,bakeGlow('iflash',[[1,'#ff9a30',.65],[.42,'#ffd060',.85],[.16,'#ffffff',1]]),x,y-20*S,1000*S*(.7+.3*U.easeOut(U.clamp(a*4))),0,fl);
+  if(fl>.03)texAt(ctx,bakeGlow('iflash',[[1,'#ff9a30',.65],[.42,'#ffd060',.85],[.16,'#ffffff',1]]),x,y-20*S,1000*S*(.7+.3*U.easeOut(U.clamp(a*4))),0,fl);
   // god-ray splash, upward fan (ground hemisphere)
   const rk=Math.exp(-a*2.2)*U.smooth(U.inv(0,.05,a));
   if(rk>.01){ctx.save();ctx.beginPath();ctx.rect(x-3000,y-3000,6000,3000+6*S);ctx.clip();
@@ -217,13 +217,13 @@ FX.impact = function(ctx,t,o){
     ctx.save();ctx.beginPath();ctx.rect(x-3000,y-3000,6000,3000);ctx.clip();chromaRing(ctx,x,y,R,.9,3.5*S,f*.5,1.6);ctx.restore();}
   // splash particles: arc up & fall, settle on ground and glimmer
   const P=table('imp',150,seed,r=>{const an=-Math.PI*(.05+.9*r()), sp=260+r()*820*(r()<.25?1.6:1);
-    return {vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,k:1.2+r()*1.4,life:1.6+r()*2.6,sz:1.3+r()*3.6,ph:r()*TAU,h:r()*.2,dg:r()<.5,big:r()<.2,tw:6+r()*10};});
+    return {vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,k:1.2+r()*1.4,life:1.6+r()*2.6,sz:1.3+r()*3.6,ph:r()*TAU,h:r()*.2,dg:r()<.5,big:r()<.2,tw:6+r()*10,h2:.12+r()*.25};});
   for(const q of P){
     if(a>q.life)continue; const k=a/q.life;
     let [px,py]=ball(x,y-6*S,q.vx*S,q.vy*S,q.k,1100,a);
     let landed=false; if(py>gy){py=gy;landed=true;}
     const al=Math.pow(1-k,1.2)*(landed?.4+.6*twk(t,q.ph,q.tw):1)*U.smooth(U.inv(0,.03,a));
-    const c=rampHex(q.h+k*.85), sz=q.sz*S;
+    const c=rampHex(q.h2+k*.7), sz=q.sz*S;
     if(a<.45&&!landed){const [qx,qy]=ball(x,y-6*S,q.vx*S,q.vy*S,q.k,1100,Math.max(0,a-.045));
       streak(ctx,qx,qy,px,py,sz,c,al*(1-a/.45));}
     glow(ctx,px,py,sz*5,c,al*.28);
@@ -246,9 +246,9 @@ FX.impact = function(ctx,t,o){
 // ---------------------------------------------------------------- absorb (charge-up)
 // o: {x,y,t0,t1, radius=520, scale=1, seed=21, count=170}. Active t0 .. t1 (+0.15)
 FX.absorb = function(ctx,t,o){
-  const t0=o.t0,t1=o.t1; if(t<t0||t>t1+.15)return;
+  const t0=o.t0,t1=o.t1; if(t<t0||t>t1+.12)return;
   const S=o.scale||1, R=(o.radius||520)*S, seed=o.seed||21, x=o.x, y=o.y, D=t1-t0;
-  const prog=U.clamp((t-t0)/D), build=U.easeIn(prog)*.7+prog*.3, out=1-U.clamp((t-t1)/.15);
+  const prog=U.clamp((t-t0)/D), build=U.easeIn(prog)*.7+prog*.3, out=1-U.clamp((t-t1)/.12);
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round'; ctx.lineJoin='round';
   if(out<1)ctx.globalAlpha=1;
   // ambient warm gathering haze
@@ -266,10 +266,10 @@ FX.absorb = function(ctx,t,o){
     const al=U.smooth(U.inv(0,.2,k))*(1-U.smooth(U.inv(.88,1,k)))*(.55+.45*build)*out;
     const c=rampHex(q.h*(1-Math.pow(k,1.5)));
     // curved streak: 4 samples behind
-    const pts=[];for(let j=0;j<=6;j++)pts.push(pr(Math.max(0,k-.14+.14*j/6)));
-    ctx.strokeStyle=U.rgba(c,al*.35);ctx.lineWidth=q.sz*S*.55;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let j=1;j<=6;j++)ctx.lineTo(pts[j][0],pts[j][1]);ctx.stroke();
-    ctx.strokeStyle=U.rgba(c,al*.7);ctx.lineWidth=q.sz*S*.9;ctx.beginPath();ctx.moveTo(pts[4][0],pts[4][1]);ctx.lineTo(pts[5][0],pts[5][1]);ctx.lineTo(pts[6][0],pts[6][1]);ctx.stroke();
-    const [px,py]=pts[6];
+    if(al<.02)continue;
+    const pts=[];for(let j=0;j<=5;j++)pts.push(pr(Math.max(0,k-.14+.14*j/5)));
+    ctx.strokeStyle=U.rgba(c,al*.5);ctx.lineWidth=q.sz*S*.7;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let j=1;j<=5;j++)ctx.lineTo(pts[j][0],pts[j][1]);ctx.stroke();
+    const [px,py]=pts[5];
     glow(ctx,px,py,q.sz*5*S,c,al*.3); dot(ctx,px,py,q.sz*1.1*S,c,al);
     if(q.sz>4.2)spark(ctx,px,py,q.sz*5*S,c,al*.8,q.dg);
   }
@@ -348,18 +348,18 @@ FX.burst = function(ctx,t,o){
 // o: {path:(tt)=>[x,y], t0, t1, life=1.4, rate=70 (particles/s), seed=41, scale=1, head=true}
 FX.trail = function(ctx,t,o){
   const t0=o.t0,t1=o.t1, life=o.life||1.4; if(t<t0||t>t1+life)return;
-  const S=o.scale||1, seed=o.seed||41, rate=o.rate||70, path=o.path;
+  const S=o.scale||1, seed=o.seed||41, rate=o.rate||90, path=o.path;
   ctx.save(); ctx.globalCompositeOperation='lighter';
-  // ribbon: recent path, tapered
-  const tn=Math.min(t,t1), ribT=.5, M=24;
-  let prev=null;
-  ctx.lineCap='round';
-  for(let i=0;i<=M;i++){const tt=tn-ribT*i/M; if(tt<t0)break; const p=path(tt);
-    if(prev){const k=i/M, fade=(t>t1?Math.exp(-(t-t1)*4):1);
-      ctx.globalAlpha=1;
-      ctx.strokeStyle=U.rgba('#ffd27a',.18*(1-k)*fade);ctx.lineWidth=26*S*(1-k*.7);ctx.beginPath();ctx.moveTo(prev[0],prev[1]);ctx.lineTo(p[0],p[1]);ctx.stroke();
-      ctx.strokeStyle=U.rgba('#fffbe6',.7*(1-k)*fade);ctx.lineWidth=4*S*(1-k*.8);ctx.beginPath();ctx.moveTo(prev[0],prev[1]);ctx.lineTo(p[0],p[1]);ctx.stroke();}
-    prev=p;}
+  // ribbon: recent path drawn as 4 overlapping sub-paths (no bead artefacts at joints), tapering
+  const tn=Math.min(t,t1), ribT=o.ribbon||.45, M=24, fade=(t>t1?Math.exp(-(t-t1)*4):1);
+  const rp=[]; for(let i=0;i<=M;i++){const tt=tn-ribT*i/M; if(tt<t0)break; rp.push(path(tt));}
+  ctx.lineCap='round'; ctx.lineJoin='round'; ctx.globalAlpha=1;
+  if(rp.length>1&&fade>.01){
+    for(let q=0;q<4;q++){const n=Math.ceil(rp.length*(1-q/4)); if(n<2)continue; const k=q/4;
+      ctx.beginPath();ctx.moveTo(rp[0][0],rp[0][1]);for(let i=1;i<n;i++)ctx.lineTo(rp[i][0],rp[i][1]);
+      ctx.strokeStyle=U.rgba('#ffc040',.07*fade);ctx.lineWidth=(10+12*k)*S;ctx.stroke();
+      ctx.strokeStyle=U.rgba('#fff3c4',.22*fade);ctx.lineWidth=(1+2.2*k)*S;ctx.stroke();}
+  }
   // particles emitted at discrete times
   const dt=1/rate, iA=Math.ceil(Math.max(t0,t-life)/dt), iB=Math.floor(Math.min(t,t1)/dt);
   for(let i=iA;i<=iB;i++){
@@ -369,7 +369,7 @@ FX.trail = function(ctx,t,o){
     const [px,py]=ball(ex+(r()-.5)*16*S,ey+(r()-.5)*16*S,(r()-.5)*90*S,(r()-.5)*90*S-10*S,1.8,70*S,a);
     const sz=(1.5+r()*3.5)*S, ph=r()*TAU, c=rampHex(r()*.2+k*.75), al=Math.pow(1-k,1.3)*twk(t,ph,10+r()*10);
     glow(ctx,px,py,sz*5,c,al*.3); dot(ctx,px,py,sz,c,al);
-    if(r()<.22)spark(ctx,px,py,sz*6,c,al,r()<.5);
+    if(r()<.3)spark(ctx,px,py,sz*6,c,al,r()<.5);
   }
   if(o.head!==false&&t<=t1){const [hx,hy]=path(t);glow(ctx,hx,hy,60*S,'#fff3c4',.4);}
   ctx.restore();
@@ -447,18 +447,21 @@ FX.bloom = function(ctx,strength,o){
   const th=(o&&o.threshold!==undefined)?o.threshold:.42;
   // brightness(b) then contrast(c) == (v - th)/(1 - th): a soft threshold
   const bb=1/(1+th), cc=(1+th)/(1-th);
-  ga.globalCompositeOperation='copy';ga.globalAlpha=1;ga.filter=`brightness(${bb.toFixed(4)}) contrast(${cc.toFixed(4)}) saturate(1.15)`;
-  ga.drawImage(cv,0,0,w1,h1); ga.filter='none';
+  // luminance mask (grayscale -> threshold) multiplied by the colour image, so bloom keeps the true hue
+  const D=U.buf('fxBloomD',w1,h1),gd=D.getContext('2d');
+  gd.globalCompositeOperation='copy';gd.globalAlpha=1;gd.drawImage(cv,0,0,w1,h1);
+  ga.globalCompositeOperation='copy';ga.globalAlpha=1;ga.filter=`grayscale(1) brightness(${bb.toFixed(4)}) contrast(${cc.toFixed(4)})`;
+  ga.drawImage(D,0,0); ga.filter='none';
+  ga.globalCompositeOperation='multiply';ga.drawImage(D,0,0);
   gb.globalCompositeOperation='copy';gb.filter='blur(2px)';gb.drawImage(A,0,0,w2,h2);gb.filter='none';
   gc.globalCompositeOperation='copy';gc.filter='blur(3px)';gc.drawImage(B,0,0,w3,h3);gc.filter='none';
   // mix the three scales into one quarter-res buffer, then ONE full-screen additive pass
-  gm.globalCompositeOperation='copy';gm.globalAlpha=1;gm.filter='blur(1.5px)';gm.drawImage(A,0,0);gm.filter='none';
+  gm.globalCompositeOperation='copy';gm.globalAlpha=1;gm.drawImage(A,0,0);
   gm.globalCompositeOperation='lighter';gm.imageSmoothingEnabled=true;
-  gm.globalAlpha=Math.min(1,.5/.35);gm.filter='blur(3px)';gm.drawImage(B,0,0,w1,h1);gm.filter='none';
-  gm.globalAlpha=1;gm.drawImage(C,0,0,w1,h1);gm.drawImage(C,0,0,w1,h1);
+  gm.drawImage(B,0,0,w1,h1);gm.drawImage(C,0,0,w1,h1);
   ctx.save();
   ctx.globalCompositeOperation='lighter'; ctx.imageSmoothingEnabled=true;
-  ctx.globalAlpha=Math.min(1,.4*strength); ctx.drawImage(M,0,0,W,H);
+  ctx.globalAlpha=Math.min(1,.5*strength); ctx.drawImage(M,0,0,W,H);
   ctx.restore();
 };
 
@@ -487,6 +490,31 @@ FX.grain = function(ctx,t,amount){
   const ox=Math.floor(U.hash(Math.floor(t*24))*256), oy=Math.floor(U.hash(Math.floor(t*24)+.5)*256);
   ctx.translate(-ox,-oy); ctx.fillStyle=ctx.createPattern(T,'repeat'); ctx.fillRect(ox,oy,W,H);
   ctx.restore();
+};
+
+// Fast path: vignette + grain baked into 4 full-res frames, applied in ONE source-over pass (~8 ms instead of ~19 ms).
+// Amounts are quantised to 0.02 and a new pair triggers a one-off rebuild (~0.3 s), so keep them constant over a shot.
+FX.vignetteGrain = function(ctx,t,vAmount,gAmount){
+  const W=ctx.canvas.width,H=ctx.canvas.height, va=Math.round((vAmount||0)*50)/50, gaq=Math.round((gAmount||0)*50)/50;
+  if(va<=0&&gaq<=0)return;
+  const n=4, frame=Math.floor(t*24)%n, key='fxVG'+frame+'_'+va+'_'+gaq;
+  const T=U.buf(key,W,H);
+  if(!T._done){
+    const g=T.getContext('2d'),id=g.createImageData(W,H),d=id.data,r=U.rng(4242+frame*131);
+    const cx=W/2,cy=H*.49,r0=H*.25,r1=Math.hypot(W,H)*.56;
+    const amp=gaq*.55;
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      const u=Math.min(1,Math.max(0,(Math.hypot(x-cx,y-cy)-r0)/(r1-r0)));
+      let v=u<.5?.25*(u/.5):.25+.75*((u-.5)/.5); v=v*v*(3-2*v)*va;
+      const nz=(r()+r()-1)*amp, a=Math.abs(nz);
+      const al=Math.min(1,v+a), i=(y*W+x)*4;
+      const c=nz>0&&al>0?Math.round(255*a/al):0;
+      d[i]=d[i+1]=d[i+2]=c; d[i]=Math.min(255,c+0); d[i+2]=Math.min(255,c+(c?0:18)); // slight navy tint in the darks
+      d[i+3]=Math.round(al*255);
+    }
+    g.putImageData(id,0,0);T._done=true;
+  }
+  ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.drawImage(T,0,0);ctx.restore();
 };
 
 FX.fade = function(ctx,alpha){
